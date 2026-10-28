@@ -1,0 +1,696 @@
+[
+  {
+    "id": "1",
+    "name": "Wildcard cert lab.local",
+    "expireDate": "2025-05-23",
+    "template": "WebServerV2",
+    "servername": "web-prod-01.lab.local",
+    "environment": "prod.local",
+    "status": "Completed",
+    "description": "Certificate has expired. Renew via internal CA and rebind in IIS. See KB-1101.",
+    "1dateTrigger": 30,
+    "2dateTrigger": 15,
+    "3dateTrigger": 7,
+    "notifyMethodbyMail": true,
+    "notifyMethodbyTeams": false,
+    "mail": {
+      "mailSender": "pstodo-noreply@lab.local",
+      "mailSubject": "Wildcard cert lab.local expires soon",
+      "mailBody": "The certificate for web-prod-01.lab.local is approaching its expiry date.",
+      "mailRecipients": [
+        "it-ops@lab.local"
+      ]
+    },
+    "teams": {
+      "teamSubject": "Wildcard cert lab.local expires soon",
+      "teamBody": "Not used in the on-prem edition.",
+      "teamWebhookUrl": ""
+    }
+  },
+  {
+    "id": "2",
+    "name": "SQL Server AG cert",
+    "expireDate": "2026-12-25",
+    "template": "SQLServerCert",
+    "servername": "sql-prod-02.lab.local",
+    "environment": "prod.local",
+    "status": "Active",
+    "description": "Expired. Availability group encryption is running on a stale cert. Escalate to DBA on-call.",
+    "1dateTrigger": 30,
+    "2dateTrigger": 60,
+    "3dateTrigger": 90,
+    "notifyMethodbyMail": true,
+    "notifyMethodbyTeams": false,
+    "mail": {
+      "mailSender": "pstodo-noreply@lab.local",
+      "mailSubject": "SQL Server AG cert expires soon",
+      "mailBody": "The certificate for sql-prod-02.lab.local is approaching its expiry date.",
+      "mailRecipients": [
+        "it-ops@lab.local"
+      ]
+    },
+    "teams": {
+      "teamSubject": "SQL Server AG cert expires soon",
+      "teamBody": "Not used in the on-prem edition.",
+      "teamWebhookUrl": ""
+    }
+  },
+  {
+    "id": "3",
+    "name": "Exchange transport TLS",
+    "expireDate": "2026-12-25",
+    "template": "ExchangeTLS",
+    "servername": "mail-01.lab.local",
+    "environment": "prod.local",
+    "status": "Backlog",
+    "description": "Renew and assign to the SMTP service. Restart the transport service during the change window.",
+    "1dateTrigger": 7,
+    "2dateTrigger": 14,
+    "3dateTrigger": 30,
+    "notifyMethodbyMail": true,
+    "notifyMethodbyTeams": false,
+    "mail": {
+      "mailSender": "pstodo-noreply@lab.local",
+      "mailSubject": "Exchange transport TLS expires soon",
+      "mailBody": "The certificate for mail-01.lab.local is approaching its expiry date.",
+      "mailRecipients": [
+        "it-ops@lab.local"
+      ]
+    },
+    "teams": {
+      "teamSubject": "Exchange transport TLS expires soon",
+      "teamBody": "Not used in the on-prem edition.",
+      "teamWebhookUrl": ""
+    }
+  },
+  {
+    "id": "4",
+    "name": "VPN gateway cert",
+    "expireDate": "2026-11-11",
+    "template": "VPNGateway",
+    "servername": "vpn-gw-01.lab.local",
+    "environment": "dmz.local",
+    "status": "Active",
+    "description": "Renew via public CA. Coordinate with the network team before installing.",
+    "1dateTrigger": 7,
+    "2dateTrigger": 21,
+    "3dateTrigger": 45,
+    "notifyMethodbyMail": true,
+    "notifyMethodbyTeams": false,
+    "mail": {
+      "mailSender": "pstodo-noreply@lab.local",
+      "mailSubject": "VPN gateway cert expires soon",
+      "mailBody": "The certificate for vpn-gw-01.lab.local is approaching its expiry date.",
+      "mailRecipients": [
+        "it-ops@lab.local"
+      ]
+    },
+    "teams": {
+      "teamSubject": "VPN gateway cert expires soon",
+      "teamBody": "Not used in the on-prem edition.",
+      "teamWebhookUrl": ""
+    }
+  },
+  {
+    "id": "5",
+    "name": "RADIUS NPS server cert",
+    "expireDate": "2026-11-13",
+    "template": "NPSServer",
+    "servername": "nps-01.lab.local",
+    "environment": "prod.local",
+    "status": "Backlog",
+    "description": "Renew from internal CA. 802.1X will fail silently for wireless clients if this lapses.",
+    "1dateTrigger": 7,
+    "2dateTrigger": 15,
+    "3dateTrigger": 30,
+    "notifyMethodbyMail": true,
+    "notifyMethodbyTeams": false,
+    "mail": {
+      "mailSender": "pstodo-noreply@lab.local",
+      "mailSubject": "RADIUS NPS server cert expires soon",
+      "mailBody": "The certificate for nps-01.lab.local is approaching its expiry date.",
+      "mailRecipients": [
+        "it-ops@lab.local"
+      ]
+    },
+    "teams": {
+      "teamSubject": "RADIUS NPS server cert expires soon",
+      "teamBody": "Not used in the on-prem edition.",
+      "teamWebhookUrl": ""
+    }
+  },
+  {
+    "id": "6",
+    "name": "Domain controller LDAPS",
+    "expireDate": "2026-11-17",
+    "template": "DomainController",
+    "servername": "dc-03.lab.local",
+    "environment": "prod.local",
+    "status": "Completed",
+    "description": "Auto-enrollment should handle this. Verify it did, otherwise request manually.",
+    "1dateTrigger": 7,
+    "2dateTrigger": 15,
+    "3dateTrigger": 30,
+    "notifyMethodbyMail": true,
+    "notifyMethodbyTeams": false,
+    "mail": {
+      "mailSender": "pstodo-noreply@lab.local",
+      "mailSubject": "Domain controller LDAPS expires soon",
+      "mailBody": "The certificate for dc-03.lab.local is approaching its expiry date.",
+      "mailRecipients": [
+        "it-ops@lab.local"
+      ]
+    },
+    "teams": {
+      "teamSubject": "Domain controller LDAPS expires soon",
+      "teamBody": "Not used in the on-prem edition.",
+      "teamWebhookUrl": ""
+    }
+  },
+  {
+    "id": "7",
+    "name": "Code signing cert",
+    "expireDate": "2026-11-20",
+    "template": "CodeSigning",
+    "servername": "build-01.lab.local",
+    "environment": "build.local",
+    "status": "Backlog",
+    "description": "Renew the EV code signing certificate. The HSM token must be present during CSR generation.",
+    "1dateTrigger": 14,
+    "2dateTrigger": 30,
+    "3dateTrigger": 90,
+    "notifyMethodbyMail": true,
+    "notifyMethodbyTeams": false,
+    "mail": {
+      "mailSender": "pstodo-noreply@lab.local",
+      "mailSubject": "Code signing cert expires soon",
+      "mailBody": "The certificate for build-01.lab.local is approaching its expiry date.",
+      "mailRecipients": [
+        "it-ops@lab.local"
+      ]
+    },
+    "teams": {
+      "teamSubject": "Code signing cert expires soon",
+      "teamBody": "Not used in the on-prem edition.",
+      "teamWebhookUrl": ""
+    }
+  },
+  {
+    "id": "8",
+    "name": "Intune SCEP NDES",
+    "expireDate": "2026-11-21",
+    "template": "NDESServer",
+    "servername": "ndes-01.lab.local",
+    "environment": "prod.local",
+    "status": "Active",
+    "description": "Renew the NDES registration authority certificate. Device enrollment stops without it.",
+    "1dateTrigger": 15,
+    "2dateTrigger": 30,
+    "3dateTrigger": 60,
+    "notifyMethodbyMail": true,
+    "notifyMethodbyTeams": false,
+    "mail": {
+      "mailSender": "pstodo-noreply@lab.local",
+      "mailSubject": "Intune SCEP NDES expires soon",
+      "mailBody": "The certificate for ndes-01.lab.local is approaching its expiry date.",
+      "mailRecipients": [
+        "it-ops@lab.local"
+      ]
+    },
+    "teams": {
+      "teamSubject": "Intune SCEP NDES expires soon",
+      "teamBody": "Not used in the on-prem edition.",
+      "teamWebhookUrl": ""
+    }
+  },
+  {
+    "id": "9",
+    "name": "API gateway TLS",
+    "expireDate": "2026-11-25",
+    "template": "APIGateway",
+    "servername": "api-gw-01.lab.local",
+    "environment": "dmz.local",
+    "status": "Backlog",
+    "description": "Public cert from external CA. Order at least ten working days before expiry.",
+    "1dateTrigger": 21,
+    "2dateTrigger": 45,
+    "3dateTrigger": 90,
+    "notifyMethodbyMail": true,
+    "notifyMethodbyTeams": false,
+    "mail": {
+      "mailSender": "pstodo-noreply@lab.local",
+      "mailSubject": "API gateway TLS expires soon",
+      "mailBody": "The certificate for api-gw-01.lab.local is approaching its expiry date.",
+      "mailRecipients": [
+        "it-ops@lab.local"
+      ]
+    },
+    "teams": {
+      "teamSubject": "API gateway TLS expires soon",
+      "teamBody": "Not used in the on-prem edition.",
+      "teamWebhookUrl": ""
+    }
+  },
+  {
+    "id": "10",
+    "name": "Backup agent cert",
+    "expireDate": "2026-11-29",
+    "template": "BackupAgent",
+    "servername": "veeam-01.lab.local",
+    "environment": "prod.local",
+    "status": "Backlog",
+    "description": "Renew and redistribute to all protected hosts. Verify a test restore afterwards.",
+    "1dateTrigger": 15,
+    "2dateTrigger": 30,
+    "3dateTrigger": 60,
+    "notifyMethodbyMail": true,
+    "notifyMethodbyTeams": false,
+    "mail": {
+      "mailSender": "pstodo-noreply@lab.local",
+      "mailSubject": "Backup agent cert expires soon",
+      "mailBody": "The certificate for veeam-01.lab.local is approaching its expiry date.",
+      "mailRecipients": [
+        "it-ops@lab.local"
+      ]
+    },
+    "teams": {
+      "teamSubject": "Backup agent cert expires soon",
+      "teamBody": "Not used in the on-prem edition.",
+      "teamWebhookUrl": ""
+    }
+  },
+  {
+    "id": "11",
+    "name": "Jenkins agent mTLS",
+    "expireDate": "2026-12-02",
+    "template": "JenkinsAgent",
+    "servername": "jenkins-01.build.local",
+    "environment": "build.local",
+    "status": "Completed",
+    "description": "Rotate the mutual TLS certificate for the controller-to-agent channel.",
+    "1dateTrigger": 14,
+    "2dateTrigger": 30,
+    "3dateTrigger": 60,
+    "notifyMethodbyMail": false,
+    "notifyMethodbyTeams": false,
+    "mail": {
+      "mailSender": "pstodo-noreply@lab.local",
+      "mailSubject": "Jenkins agent mTLS expires soon",
+      "mailBody": "The certificate for jenkins-01.build.local is approaching its expiry date.",
+      "mailRecipients": [
+        "it-ops@lab.local"
+      ]
+    },
+    "teams": {
+      "teamSubject": "Jenkins agent mTLS expires soon",
+      "teamBody": "Not used in the on-prem edition.",
+      "teamWebhookUrl": ""
+    }
+  },
+  {
+    "id": "12",
+    "name": "Grafana ingress cert",
+    "expireDate": "2026-12-05",
+    "template": "IngressTLS",
+    "servername": "grafana.lab.local",
+    "environment": "test.local",
+    "status": "Active",
+    "description": "Managed by cert-manager. Confirm the ACME renewal is not stuck before intervening.",
+    "1dateTrigger": 15,
+    "2dateTrigger": 30,
+    "3dateTrigger": 45,
+    "notifyMethodbyMail": true,
+    "notifyMethodbyTeams": false,
+    "mail": {
+      "mailSender": "pstodo-noreply@lab.local",
+      "mailSubject": "Grafana ingress cert expires soon",
+      "mailBody": "The certificate for grafana.lab.local is approaching its expiry date.",
+      "mailRecipients": [
+        "it-ops@lab.local"
+      ]
+    },
+    "teams": {
+      "teamSubject": "Grafana ingress cert expires soon",
+      "teamBody": "Not used in the on-prem edition.",
+      "teamWebhookUrl": ""
+    }
+  },
+  {
+    "id": "13",
+    "name": "A-Webserver test cert",
+    "expireDate": "2026-12-09",
+    "template": "A-webserver",
+    "servername": "A-Webserver.lab.local",
+    "environment": "test.local",
+    "status": "Backlog",
+    "description": "Test environment certificate. Renew from internal CA when convenient.",
+    "1dateTrigger": 15,
+    "2dateTrigger": 17,
+    "3dateTrigger": 30,
+    "notifyMethodbyMail": true,
+    "notifyMethodbyTeams": false,
+    "mail": {
+      "mailSender": "pstodo-noreply@lab.local",
+      "mailSubject": "A-Webserver test cert expires soon",
+      "mailBody": "The certificate for A-Webserver.lab.local is approaching its expiry date.",
+      "mailRecipients": [
+        "it-ops@lab.local"
+      ]
+    },
+    "teams": {
+      "teamSubject": "A-Webserver test cert expires soon",
+      "teamBody": "Not used in the on-prem edition.",
+      "teamWebhookUrl": ""
+    }
+  },
+  {
+    "id": "14",
+    "name": "Root CA cross-sign",
+    "expireDate": "2026-12-22",
+    "template": "RootCA",
+    "servername": "ca-root-01.lab.local",
+    "environment": "prod.local",
+    "status": "Backlog",
+    "description": "Cross-signed intermediate expires. Plan the transition at least a month out.",
+    "1dateTrigger": 30,
+    "2dateTrigger": 60,
+    "3dateTrigger": 120,
+    "notifyMethodbyMail": true,
+    "notifyMethodbyTeams": false,
+    "mail": {
+      "mailSender": "pstodo-noreply@lab.local",
+      "mailSubject": "Root CA cross-sign expires soon",
+      "mailBody": "The certificate for ca-root-01.lab.local is approaching its expiry date.",
+      "mailRecipients": [
+        "it-ops@lab.local"
+      ]
+    },
+    "teams": {
+      "teamSubject": "Root CA cross-sign expires soon",
+      "teamBody": "Not used in the on-prem edition.",
+      "teamWebhookUrl": ""
+    }
+  },
+  {
+    "id": "15",
+    "name": "SFTP host key rotation",
+    "expireDate": "2027-01-19",
+    "template": "SFTPServer",
+    "servername": "sftp-01.dmz.local",
+    "environment": "dmz.local",
+    "status": "Backlog",
+    "description": "Scheduled host key rotation. Notify all partners four weeks in advance.",
+    "1dateTrigger": 30,
+    "2dateTrigger": 45,
+    "3dateTrigger": 90,
+    "notifyMethodbyMail": true,
+    "notifyMethodbyTeams": false,
+    "mail": {
+      "mailSender": "pstodo-noreply@lab.local",
+      "mailSubject": "SFTP host key rotation expires soon",
+      "mailBody": "The certificate for sftp-01.dmz.local is approaching its expiry date.",
+      "mailRecipients": [
+        "it-ops@lab.local"
+      ]
+    },
+    "teams": {
+      "teamSubject": "SFTP host key rotation expires soon",
+      "teamBody": "Not used in the on-prem edition.",
+      "teamWebhookUrl": ""
+    }
+  },
+  {
+    "id": "16",
+    "name": "Terraform Cloud token",
+    "expireDate": "2027-02-05",
+    "template": "ServiceToken",
+    "servername": "tfc-workspace-prod",
+    "environment": "prod.local",
+    "status": "Completed",
+    "description": "API token expires. Rotate in Terraform Cloud and update the CI secret store.",
+    "1dateTrigger": 30,
+    "2dateTrigger": 60,
+    "3dateTrigger": 90,
+    "notifyMethodbyMail": false,
+    "notifyMethodbyTeams": false,
+    "mail": {
+      "mailSender": "pstodo-noreply@lab.local",
+      "mailSubject": "Terraform Cloud token expires soon",
+      "mailBody": "The certificate for tfc-workspace-prod is approaching its expiry date.",
+      "mailRecipients": [
+        "it-ops@lab.local"
+      ]
+    },
+    "teams": {
+      "teamSubject": "Terraform Cloud token expires soon",
+      "teamBody": "Not used in the on-prem edition.",
+      "teamWebhookUrl": ""
+    }
+  },
+  {
+    "id": "17",
+    "name": "Load balancer SSL profile",
+    "expireDate": "2027-03-04",
+    "template": "LoadBalancer",
+    "servername": "f5-01.dmz.local",
+    "environment": "dmz.local",
+    "status": "Backlog",
+    "description": "SSL profile certificate. Order the replacement in good time; the CA takes a week.",
+    "1dateTrigger": 30,
+    "2dateTrigger": 60,
+    "3dateTrigger": 90,
+    "notifyMethodbyMail": true,
+    "notifyMethodbyTeams": false,
+    "mail": {
+      "mailSender": "pstodo-noreply@lab.local",
+      "mailSubject": "Load balancer SSL profile expires soon",
+      "mailBody": "The certificate for f5-01.dmz.local is approaching its expiry date.",
+      "mailRecipients": [
+        "it-ops@lab.local"
+      ]
+    },
+    "teams": {
+      "teamSubject": "Load balancer SSL profile expires soon",
+      "teamBody": "Not used in the on-prem edition.",
+      "teamWebhookUrl": ""
+    }
+  },
+  {
+    "id": "18",
+    "name": "Archive share cert",
+    "expireDate": "2027-05-28",
+    "template": "FileServer",
+    "servername": "archive-01.lab.local",
+    "environment": "test.local",
+    "status": "Backlog",
+    "description": "Low priority. Renew whenever the next maintenance window comes around.",
+    "1dateTrigger": 30,
+    "2dateTrigger": 60,
+    "3dateTrigger": 90,
+    "notifyMethodbyMail": true,
+    "notifyMethodbyTeams": false,
+    "mail": {
+      "mailSender": "pstodo-noreply@lab.local",
+      "mailSubject": "Archive share cert expires soon",
+      "mailBody": "The certificate for archive-01.lab.local is approaching its expiry date.",
+      "mailRecipients": [
+        "it-ops@lab.local"
+      ]
+    },
+    "teams": {
+      "teamSubject": "Archive share cert expires soon",
+      "teamBody": "Not used in the on-prem edition.",
+      "teamWebhookUrl": ""
+    }
+  },
+  {
+    "id": "19",
+    "name": "mail-01.lab.local - mail.lab.local (SAN) (IMAP, POP, IIS, SMTP)",
+    "expireDate": "2026-10-23",
+    "template": "ExchangeCert",
+    "servername": "mail-01.lab.local",
+    "environment": "Exchange on-prem - lab.local",
+    "status": "Backlog",
+    "description": "Exchange certificate 'CN=mail.lab.local, O=Lab' (thumbprint A1B2C3D4E5F60718293A4B5C6D7E8F9012345678) on mail-01.lab.local is bound to IMAP, POP, IIS, SMTP and expires on 2026-10-23. Renew it (internal CA or public CA), import it with Import-ExchangeCertificate, assign the same services with Enable-ExchangeCertificate and restart the transport/IIS services in a change window.",
+    "1dateTrigger": 30,
+    "2dateTrigger": 15,
+    "3dateTrigger": 7,
+    "notifyMethodbyMail": true,
+    "notifyMethodbyTeams": false,
+    "mail": {
+      "mailSender": "pstodo-noreply@lab.local",
+      "mailSubject": "Exchange certificate on mail-01.lab.local expires 2026-10-23",
+      "mailBody": "The Exchange certificate 'CN=mail.lab.local, O=Lab' on mail-01.lab.local (IMAP, POP, IIS, SMTP) expires on 2026-10-23. Renew and re-enable it before then.",
+      "mailRecipients": [
+        "it-ops@lab.local"
+      ]
+    },
+    "teams": {
+      "teamSubject": "Exchange certificate on mail-01.lab.local expires 2026-10-23",
+      "teamBody": "Not used in the on-prem edition.",
+      "teamWebhookUrl": ""
+    },
+    "source": "ExchangeCert",
+    "exchangeCertKey": "mail-01.lab.local|A1B2C3D4E5F60718293A4B5C6D7E8F9012345678",
+    "thumbprint": "A1B2C3D4E5F60718293A4B5C6D7E8F9012345678",
+    "subject": "CN=mail.lab.local, O=Lab",
+    "services": "IMAP, POP, IIS, SMTP"
+  },
+  {
+    "id": "20",
+    "name": "svc-backup - password expiry",
+    "expireDate": "2026-09-20",
+    "template": "ADAccount",
+    "servername": "lab.local",
+    "environment": "AD on-prem - lab.local",
+    "status": "Active",
+    "description": "Active Directory account 'svc-backup' (CN=svc-backup,OU=Service Accounts,DC=lab,DC=local) - password expiry expires on 2026-09-20. Extend the account / rotate the password in AD and update every system that uses it (scheduled tasks, services, application pools, connection strings).",
+    "1dateTrigger": 30,
+    "2dateTrigger": 15,
+    "3dateTrigger": 7,
+    "notifyMethodbyMail": true,
+    "notifyMethodbyTeams": false,
+    "mail": {
+      "mailSender": "pstodo-noreply@lab.local",
+      "mailSubject": "AD password expiry for svc-backup expires 2026-09-20",
+      "mailBody": "The Active Directory password expiry for 'svc-backup' (svc-backup) expires on 2026-09-20. Handle it before then.",
+      "mailRecipients": [
+        "it-ops@lab.local"
+      ]
+    },
+    "teams": {
+      "teamSubject": "AD password expiry for svc-backup expires 2026-09-20",
+      "teamBody": "Not used in the on-prem edition.",
+      "teamWebhookUrl": ""
+    },
+    "source": "ADAccount",
+    "adAccountKey": "10000000-0000-0000-0000-000000000001|password",
+    "samAccountName": "svc-backup",
+    "distinguishedName": "CN=svc-backup,OU=Service Accounts,DC=lab,DC=local",
+    "expiryType": "password expiry"
+  },
+  {
+    "id": "21",
+    "name": "psToDo-Graph-Connector - rotation-2025 (secret)",
+    "expireDate": "2026-09-22",
+    "template": "AppRegistration",
+    "servername": "11111111-1111-1111-1111-111111111111",
+    "environment": "prod.local",
+    "status": "Backlog",
+    "description": "Entra ID app registration credential is approaching expiry. Rotate the secret/certificate in Entra ID and update every consumer (Key Vault, CI secret store, app config).",
+    "1dateTrigger": 30,
+    "2dateTrigger": 15,
+    "3dateTrigger": 7,
+    "notifyMethodbyMail": true,
+    "notifyMethodbyTeams": false,
+    "mail": {
+      "mailSender": "pstodo-noreply@lab.local",
+      "mailSubject": "psToDo-Graph-Connector - rotation-2025 (secret) expires soon",
+      "mailBody": "The Entra ID credential 'psToDo-Graph-Connector - rotation-2025 (secret)' (app 11111111-1111-1111-1111-111111111111) expires on 2026-09-22. Rotate it before then.",
+      "mailRecipients": [
+        "it-ops@lab.local"
+      ]
+    },
+    "teams": {
+      "teamSubject": "psToDo-Graph-Connector - rotation-2025 (secret) expires soon",
+      "teamBody": "The Entra ID credential 'psToDo-Graph-Connector - rotation-2025 (secret)' (app 11111111-1111-1111-1111-111111111111) expires on 2026-09-22. Rotate it before then.",
+      "teamWebhookUrl": "REPLACE_ME_WITH_TEAMS_WEBHOOK_URL"
+    },
+    "source": "EntraAppReg",
+    "entraKeyId": "aaaaaaaa-0000-0000-0000-000000000001"
+  },
+  {
+    "id": "22",
+    "name": "psToDo-Automation-App - signing-cert (certificate)",
+    "expireDate": "2026-12-06",
+    "template": "AppRegistration",
+    "servername": "22222222-2222-2222-2222-222222222222",
+    "environment": "prod.local",
+    "status": "Active",
+    "description": "Entra ID app registration credential is approaching expiry. Rotate the secret/certificate in Entra ID and update every consumer (Key Vault, CI secret store, app config).",
+    "1dateTrigger": 30,
+    "2dateTrigger": 15,
+    "3dateTrigger": 7,
+    "notifyMethodbyMail": true,
+    "notifyMethodbyTeams": false,
+    "mail": {
+      "mailSender": "pstodo-noreply@lab.local",
+      "mailSubject": "psToDo-Automation-App - signing-cert (certificate) expires soon",
+      "mailBody": "The Entra ID credential 'psToDo-Automation-App - signing-cert (certificate)' (app 22222222-2222-2222-2222-222222222222) expires on 2026-12-06. Rotate it before then.",
+      "mailRecipients": [
+        "it-ops@lab.local"
+      ]
+    },
+    "teams": {
+      "teamSubject": "psToDo-Automation-App - signing-cert (certificate) expires soon",
+      "teamBody": "The Entra ID credential 'psToDo-Automation-App - signing-cert (certificate)' (app 22222222-2222-2222-2222-222222222222) expires on 2026-12-06. Rotate it before then.",
+      "teamWebhookUrl": "REPLACE_ME_WITH_TEAMS_WEBHOOK_URL"
+    },
+    "source": "EntraAppReg",
+    "entraKeyId": "aaaaaaaa-0000-0000-0000-000000000002"
+  },
+  {
+    "id": "23",
+    "name": "MC100001 - Retirement: Legacy connector is being removed",
+    "expireDate": "2026-09-17",
+    "template": "MessageCenter",
+    "servername": "Exchange Online",
+    "environment": "prod.local",
+    "status": "Active",
+    "description": "Microsoft 365 Message Center advisory MC100001 (planForChange, severity high) for Exchange Online requires action by 2026-09-17. Review the message in the Microsoft 365 admin center (Health > Message center) and complete the required change before the deadline.",
+    "1dateTrigger": 30,
+    "2dateTrigger": 15,
+    "3dateTrigger": 7,
+    "notifyMethodbyMail": true,
+    "notifyMethodbyTeams": false,
+    "mail": {
+      "mailSender": "pstodo-noreply@lab.local",
+      "mailSubject": "MC100001 action required by 2026-09-17",
+      "mailBody": "Microsoft 365 advisory 'MC100001 - Retirement: Legacy connector is being removed' (planForChange, severity high) affecting Exchange Online requires action by 2026-09-17.",
+      "mailRecipients": [
+        "it-ops@lab.local"
+      ]
+    },
+    "teams": {
+      "teamSubject": "MC100001 action required by 2026-09-17",
+      "teamBody": "Microsoft 365 advisory 'MC100001 - Retirement: Legacy connector is being removed' (planForChange, severity high) affecting Exchange Online requires action by 2026-09-17.",
+      "teamWebhookUrl": "REPLACE_ME_WITH_TEAMS_WEBHOOK_URL"
+    },
+    "source": "MessageCenter",
+    "messageId": "MC100001",
+    "severity": "high",
+    "messageLink": "https://admin.microsoft.com/#/MessageCenter/:/messages/MC100001"
+  },
+  {
+    "id": "24",
+    "name": "MC100002 - Action required: update Teams client policy",
+    "expireDate": "2026-08-20",
+    "template": "MessageCenter",
+    "servername": "Microsoft Teams",
+    "environment": "prod.local",
+    "status": "Backlog",
+    "description": "Microsoft 365 Message Center advisory MC100002 (planForChange, severity normal) for Microsoft Teams requires action by 2026-08-20. Review the message in the Microsoft 365 admin center (Health > Message center) and complete the required change before the deadline.",
+    "1dateTrigger": 30,
+    "2dateTrigger": 15,
+    "3dateTrigger": 7,
+    "notifyMethodbyMail": true,
+    "notifyMethodbyTeams": false,
+    "mail": {
+      "mailSender": "pstodo-noreply@lab.local",
+      "mailSubject": "MC100002 action required by 2026-08-20",
+      "mailBody": "Microsoft 365 advisory 'MC100002 - Action required: update Teams client policy' (planForChange, severity normal) affecting Microsoft Teams requires action by 2026-08-20.",
+      "mailRecipients": [
+        "it-ops@lab.local"
+      ]
+    },
+    "teams": {
+      "teamSubject": "MC100002 action required by 2026-08-20",
+      "teamBody": "Microsoft 365 advisory 'MC100002 - Action required: update Teams client policy' (planForChange, severity normal) affecting Microsoft Teams requires action by 2026-08-20.",
+      "teamWebhookUrl": "REPLACE_ME_WITH_TEAMS_WEBHOOK_URL"
+    },
+    "source": "MessageCenter",
+    "messageId": "MC100002",
+    "severity": "normal",
+    "messageLink": "https://admin.microsoft.com/#/MessageCenter/:/messages/MC100002"
+  }
+]

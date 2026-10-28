@@ -1,0 +1,21 @@
+{
+    "_help": {
+        "SmtpServer": "FQDN of an on-prem Exchange server (or the load-balanced SMTP name) whose Receive connector accepts mail from this host.",
+        "SmtpPort": "25 for a relay Receive connector (Frontend Transport), 587 for the client submission connector.",
+        "UseTls": "true = STARTTLS. Keep it on. The Exchange certificate must be trusted by this host, or set TlsAllowUntrustedCertificate = true in a lab.",
+        "AuthMode": "Anonymous (relay connector scoped to this host's IP, recommended) | CurrentUser (Kerberos/NTLM as the account running the task) | Credential (username + password from CredentialXmlPath).",
+        "CredentialXmlPath": "Only used when AuthMode = Credential. Create it with Install-help\\New-SmtpCredentialFile.ps1. DPAPI-protected: it can only be read by the same Windows account on the same machine that created it.",
+        "ExchangePowerShellUri": "Exchange remote PowerShell endpoint. Used ONLY by the Exchange certificate importer plugin, never by the main script.",
+        "ExchangeAuthentication": "Kerberos (domain-joined host, recommended) | Basic (needs https and ExchangeCredentialXmlPath).",
+        "ExchangeCredentialXmlPath": "Only used when ExchangeAuthentication = Basic. Create it with Install-help\\New-SmtpCredentialFile.ps1 -OutFile Settings\\Config\\exchange-credential.xml."
+    },
+    "SmtpServer": "mail-01.lab.local",
+    "SmtpPort": 25,
+    "UseTls": true,
+    "TlsAllowUntrustedCertificate": false,
+    "AuthMode": "Anonymous",
+    "CredentialXmlPath": "Settings\\Config\\smtp-credential.xml",
+    "ExchangePowerShellUri": "http://mail-01.lab.local/PowerShell/",
+    "ExchangeAuthentication": "Kerberos",
+    "ExchangeCredentialXmlPath": "Settings\\Config\\exchange-credential.xml"
+}

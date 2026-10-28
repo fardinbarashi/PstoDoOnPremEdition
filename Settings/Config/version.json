@@ -1,0 +1,8 @@
+{
+    "version": "1.0-onprem",
+    "Changes": "On-premises edition. Mail is sent through an on-prem Exchange server over SMTP (STARTTLS). No Microsoft Graph, no Entra ID app registration, no Teams webhook and no internet dependency. Plugins import Exchange certificates (Get-ExchangeCertificate) and Active Directory account/password expiry.",
+    "basedOn": "psToDo 1.3",
+    "githublink": "https://github.com/fardinbarashi/psToDo",
+    "Linkdin": "https://www.linkedin.com/in/fardin-barashi-a56310a2/",
+    "Contact": "https://www.linkedin.com/in/fardin-barashi-a56310a2/"
+}

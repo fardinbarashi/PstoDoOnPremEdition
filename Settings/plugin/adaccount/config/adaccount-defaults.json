@@ -1,0 +1,39 @@
+{
+  "_help": {
+    "searchBases": "List of OU distinguished names to scan. Empty list = the whole domain.",
+    "includeAccountExpiry": "Monitor users whose AccountExpirationDate is set (accountExpires attribute).",
+    "includePasswordExpiry": "Monitor password expiry (msDS-UserPasswordExpiryTimeComputed) for users in passwordExpirySearchBases / passwordExpiryGroups. Meant for service accounts, not the whole user population.",
+    "passwordExpirySearchBases": "OU distinguished names whose users get password-expiry monitoring. Empty = none (unless passwordExpiryGroups is set).",
+    "passwordExpiryGroups": "AD group names whose direct user members get password-expiry monitoring.",
+    "excludeDisabled": "Skip disabled accounts."
+  },
+  "searchBases": [],
+  "includeAccountExpiry": true,
+  "includePasswordExpiry": true,
+  "passwordExpirySearchBases": [ "OU=Service Accounts,DC=lab,DC=local" ],
+  "passwordExpiryGroups": [],
+  "excludeDisabled": true,
+
+  "template": "ADAccount",
+  "environment": "prod.local",
+  "status": "Backlog",
+  "description": "Active Directory account '{{samAccountName}}' ({{distinguishedName}}) - {{expiryType}} expires on {{expireDate}}. Extend the account / rotate the password in AD and update every system that uses it (scheduled tasks, services, application pools, connection strings).",
+  "1dateTrigger": 30,
+  "2dateTrigger": 15,
+  "3dateTrigger": 7,
+  "notifyMethodbyMail": true,
+  "notifyMethodbyTeams": false,
+  "mail": {
+    "mailSender": "REPLACE_ME_WITH_SENDER_MAIL_ADDRESS",
+    "mailSubject": "AD {{expiryType}} for {{samAccountName}} expires {{expireDate}}",
+    "mailBody": "The Active Directory {{expiryType}} for '{{name}}' ({{samAccountName}}) expires on {{expireDate}}. Handle it before then.",
+    "mailRecipients": [
+      "REPLACE_ME_WITH_MAIL_ADDRESS"
+    ]
+  },
+  "teams": {
+    "teamSubject": "AD {{expiryType}} for {{samAccountName}} expires {{expireDate}}",
+    "teamBody": "Not used in the on-prem edition.",
+    "teamWebhookUrl": ""
+  }
+}
