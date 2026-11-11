@@ -10,15 +10,12 @@ The **on-prem edition** of [psToDo](https://github.com/fardinbarashi/psToDo). Sa
 The **main script and the HTML report** only talk to **your on-prem Exchange server**, over SMTP. No Microsoft Graph, no app registration, no Teams webhook, no PowerShell Gallery downloads.
 
 The **optional cloud importers** (Entra app registrations and M365 Message Center) are included from the cloud edition for hybrid organisations. They are the only parts that contact Microsoft Graph, the main script never calls them, and they can be left unused on an isolated network.
-
 Based on psToDo 1.3. Runs on **Windows PowerShell 5.1** and **PowerShell 7.x**.
 
 ---
 
 ## Table of Contents
 - [Setup from start to finish](#setup-from-start-to-finish) (step 11: [edit in the browser](#11-optional-edit-the-data-in-the-browser), step 12: [Tools](#12-optional-tools-for-editors))
-- [Maintenance](#maintenance)
-- [Troubleshooting](#troubleshooting)
 - [What is different from the cloud edition](#what-is-different-from-the-cloud-edition)
 - [Components](#components)
 - [Requirements](#requirements)
@@ -34,11 +31,9 @@ Based on psToDo 1.3. Runs on **Windows PowerShell 5.1** and **PowerShell 7.x**.
 ---
 
 ## Setup from start to finish
-
 The examples use the domain `CONTOSO`, the mail domain `contoso.com`, the Exchange server `ex01.contoso.local` and the install folder `D:\Automation\psToDo`. Replace them with your own values.
 
-### 0. Decide the names
-
+### 1. Decide the names
 Write these down first; every later step uses them.
 
 | Item | Example | Notes |
@@ -52,8 +47,7 @@ Write these down first; every later step uses them.
 | IIS site | `psToDo` | Points at the report folder |
 | Viewer group | `CONTOSO\psToDo-Viewers` | AD **security** group allowed to open the dashboard |
 
-### 1. Create the service account and its mailbox
-
+### 2. Create the service account and its mailbox
 Create a normal AD user (for example `svc-pstodo`) with a strong password. Then give it a mailbox in the Exchange Management Shell:
 
 ```powershell
@@ -62,15 +56,13 @@ Get-Mailbox svc-pstodo | Format-List PrimarySmtpAddress
 ```
 
 Note the **PrimarySmtpAddress**. It is the only address the account can send as, and it goes into `mailSender` later. A common mistake is to use the server name (`svc-pstodo@mail.contoso.com`) instead.
-
 To send from a shared mailbox instead, grant Send-As and use that mailbox's address:
 
 ```powershell
 Add-ADPermission -Identity "pstodo-noreply" -User "CONTOSO\svc-pstodo" -ExtendedRights "Send As"
 ```
 
-### 2. Copy the files
-
+### 3. Copy the files
 1. Unpack the zip to the install folder, for example `D:\Automation\psToDo`.
 2. Remove the "downloaded from the internet" mark so the execution policy does not block the scripts:
 
@@ -84,8 +76,7 @@ Add-ADPermission -Identity "pstodo-noreply" -User "CONTOSO\svc-pstodo" -Extended
     icacls "D:\Automation\psToDo" /grant "CONTOSO\svc-pstodo:(OI)(CI)M"
     ```
 
-### 3. Configure the SMTP connection
-
+### 4. Configure the SMTP connection
 Edit `Settings\Config\ExchangeOnpremSettings.json`. The recommended setup signs in as the service account on port 587. It needs no change on the Exchange side and can deliver to external recipients:
 
 ```json
@@ -107,39 +98,31 @@ Edit `Settings\Config\ExchangeOnpremSettings.json`. The recommended setup signs 
 Get-PowerShellVirtualDirectory | Format-List Server, InternalUrl
 ```
 
-### 4. Store the service account's password
-
+### 5. Store the service account's password
 The password is stored in `Settings\Config\smtp-credential.xml`, encrypted with Windows DPAPI. Only the account that created the file can read it, and only on the machine where it was created. So create it **as the service account, on the psToDo server**:
-
 ```powershell
 runas /user:CONTOSO\svc-pstodo powershell.exe
 # in the new window:
 cd "D:\Automation\psToDo"
 .\Install-help\New-SmtpCredentialFile.ps1 -UserName CONTOSO\svc-pstodo
 ```
-
 The script prompts for the password and checks that the file can be read back.
 
-### 5. Test the mail connection
-
+### 6. Test the mail connection
 Still in the window running as the service account:
-
 ```powershell
 .\Install-help\Test-OnpremSmtp.ps1 -To you@contoso.com -From svc-pstodo@contoso.com
 ```
-
 You should receive a test mail. The output should say `auth: Credential`. If it fails, see [Troubleshooting](#troubleshooting).
 
-### 6. Add what to monitor
-
+### 7. Add what to monitor
 Edit `Files\db\monitorobjects.json`. The shipped file holds sample objects from a lab. Replace them with your own (see [Adding an object to monitor](#adding-an-object-to-monitor)). In every object:
 
 - `mailSender` = the address from step 1.
 - `mailRecipients` = who gets the alert.
 - `notifyMethodbyMail` = `true`.
 
-### 7. Optional: set up the plugins
-
+### 8. Optional: set up the plugins
 The plugins fill `monitorobjects.json` automatically. In each plugin you use, set `mailSender` and `mailRecipients` in its defaults file (`Settings\plugin\<name>\config\*-defaults.json`). Objects imported with the placeholder `REPLACE_ME_WITH_SENDER_MAIL_ADDRESS` fail to send.
 
 | Plugin | Extra setup |
@@ -164,7 +147,6 @@ Always run a plugin with `-WhatIf` the first time:
 `-WhatIf` lists what would be sent without sending or recording anything. Run the scripts as files (F5 or `.\script.ps1`), not as a selection (F8).
 
 ### 9. Create the scheduled tasks
-
 Create the tasks on the psToDo server, all running as the service account with **Run whether user is logged on or not**. Saving the task normally grants the account *Log on as a batch job*, unless a GPO controls that right.
 
 | Task | Suggested trigger | Script |
@@ -174,26 +156,20 @@ Create the tasks on the psToDo server, all running as the service account with *
 | psToDo – Report | Daily, after the alert run | `psToDo-HTML-Report-Onprem-v1.0.ps1` |
 
 Action for each task (quote the path if it contains spaces):
-
 - Program: `C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe`
 - Arguments: `-NoLogo -NoProfile -File "D:\Automation\psToDo\psToDo-Onprem-v1.0.ps1"`
 - Start in: `D:\Automation\psToDo`
-
 Run the alert task once by hand and check the newest file in `Logs\`. It should end with `Mail: n of n sent`.
 
 ### 10. Publish the dashboard in IIS
-
 The dashboard is a static page, `Files\report\index.html`. Only members of one AD group may see it.
-
 Set your organisation name, logo and language in `Settings\Config\report-settings.json` first (see [Report settings](#report-settings)).
 
 1. Create the viewer group and add the people who should see the page:
-
     ```powershell
     New-ADGroup -Name "psToDo-Viewers" -GroupScope Global -GroupCategory Security
     Add-ADGroupMember -Identity "psToDo-Viewers" -Members alice, bob
     ```
-
 2. On the IIS server, as Administrator, run `Install-help\Setup-IisReportSecurity.ps1`. It installs Windows Authentication and URL Authorization, writes `web.config` next to `index.html` with your group, sets Windows Authentication on and Anonymous off for the site, and gives the group and the app pool Read on the folder:
 
     ```powershell
@@ -215,7 +191,6 @@ Set your organisation name, logo and language in `Settings\Config\report-setting
 5. Test: a group member sees the page, anyone else gets HTTP 401. A user who was just added to the group must sign out and in again first.
 
 ### 11. Optional: edit the data in the browser
-
 `edit.html` shows the same objects as a table people can change directly: name, expire date, status, triggers, mail on/off, and in a details panel the server, description, sender, recipients, subject and body. Objects can be added, duplicated and deleted. Members of an **editors** group can save; everyone else who can open the site sees the same page read-only.
 
 The editor opens **inside the dashboard**: members of the editors group get an **Edit** menu item that shows the editor in an "Edit objects" panel, with a link **Update dashboard now** (needs step 12). Unsaved changes are kept while you look at other views. Viewers do not see Edit. `edit.html` still works on its own too. Changes appear on the other dashboard views after the next report run.
@@ -299,46 +274,6 @@ What protects it: only editors can see Tools or call the handler; requests need 
 - [ ] If you use the editor: an editor can save in `edit.html`, a viewer sees it read-only.
 - [ ] If you use Tools: Health check runs from the Tools page and the runner was seen within the last minute.
 - [ ] `monitorobjects.json` and `*-credential.xml` are not under any web root and not in git.
-
----
-
-## Maintenance
-
-**Service account password changed:** update the password on every scheduled task, then recreate `smtp-credential.xml` as in step 4. Until then every mail fails with `5.7.57`.
-
-**Moving to another server:** the credential file does not move with the files. Recreate it on the new server as the service account.
-
-**Upgrading psToDo:** keep `Files\db\monitorobjects.json`, `Files\state\`, `Settings\Config\ExchangeOnpremSettings.json`, `Settings\Config\smtp-credential.xml`, your plugin defaults and `Files\report\web.config`. Replace everything else.
-
-**Disk space:** nothing is cleaned up automatically. `Logs\` and `Files\backup\` grow by a few files per run.
-
-**Send an alert again:** each trigger window sends once. `.\psToDo-Onprem-v1.0.ps1 -ResetState` forgets what was sent.
-
----
-
-## Troubleshooting
-
-Start with the newest transcript in `Logs\`.
-
-| Error in the log | Cause | Fix |
-|------------------|-------|-----|
-| `5.7.57 Client was not authenticated to send anonymous mail` | No sign-in reached Exchange. Often `AuthMode` is not what you think, or `CurrentUser` fails because Kerberos does not work against a load-balanced name | Check that Section 3 says `auth: Credential`. Use `Credential` on port 587 |
-| `5.7.60 Client does not have permissions to send as this sender` | `mailSender` is not the account's own address | Set `mailSender` to the PrimarySmtpAddress from step 1, or grant Send-As |
-| `5.7.54 Unable to relay` | Anonymous relay to an external recipient | Use `Credential`, or allow external relay on the connector |
-| `Could not read the SMTP credential file` | The file was made by another account or on another machine | Recreate it as the service account on this server (step 4) |
-| `Cannot reach the on-prem Exchange SMTP endpoint` | DNS, firewall or wrong port | `Test-NetConnection mail.contoso.com -Port 587` |
-| `The remote certificate is invalid` | `SmtpServer` is not on the Exchange certificate, or the CA is not trusted | Use the name on the certificate |
-| `expired 400 days ago, not a reminder day` | Not an error: expired objects remind every 7 days | — |
-| HTTP 401 for a group member | Not signed out and in since joining, the group is a distribution group, or NTFS read is missing | Sign out and in; use a security group; check step 10.3 |
-| HTTP 500.19 | Authentication settings put in `web.config`, or URL Authorization not installed | Run `Setup-IisReportSecurity.ps1` again |
-| `edit.html`: "Live data could not be loaded ... showing the snapshot" | The page cannot reach `psToDo-api.ashx`: ASP.NET not installed, `.ashx` blocked by request filtering, or the handler is missing | Run `Setup-IisReportEditor.ps1`, then the editable report again |
-| `edit.html`: "Read-only: ... is not a member of ..." | The user is not in the editors group, or has not signed in again since being added | Add to the group; sign out and in |
-| `edit.html`: "changed by someone else" | Another editor or a plugin wrote the file after the page loaded it | Download your version if needed, then Reload and redo the change |
-| `edit.html`: "Not saved: UnauthorizedAccessException ..." | The app pool cannot write `Files\db`, the backup folder or `Logs` | Run `Setup-IisReportEditor.ps1` again (NTFS step) |
-| No **Edit** or **Tools** in the menu | You are not in the editors group, `edit.html` is not in the site folder, or the dashboard is opened as a file | Run the editable report script; open the dashboard through IIS |
-| Tools: "The tools task has not run yet" or "was last seen ...", runs stay *Queued* | The scheduled task **psToDo Tools** is missing, disabled or failing | Run `Setup-ToolsRunner.ps1`; check the task's last result and that the account may log on as a batch job |
-| Tools: "Tools could not be loaded" | The handler is an old copy, or the app pool cannot read `Files\queue` | Run `Setup-IisReportEditor.ps1` again, then the editable report script |
-| Tools: a run is *Failed* | The script ended with an error | Click **Output** on the run; it shows what the script wrote |
 
 ---
 
