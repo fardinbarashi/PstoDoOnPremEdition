@@ -1,0 +1,26 @@
+{
+  "template": "ExchangeCert",
+  "environment": "prod.local",
+  "status": "Backlog",
+  "description": "Exchange certificate '{{subject}}' (thumbprint {{thumbprint}}) on {{servername}} is bound to {{services}} and expires on {{expireDate}}. Renew it (internal CA or public CA), import it with Import-ExchangeCertificate, assign the same services with Enable-ExchangeCertificate and restart the transport/IIS services in a change window.",
+  "1dateTrigger": 30,
+  "2dateTrigger": 15,
+  "3dateTrigger": 7,
+  "notifyMethodbyMail": true,
+  "notifyMethodbyTeams": false,
+  "includeSelfSigned": false,
+  "includeServicesNone": false,
+  "mail": {
+    "mailSender": "REPLACE_ME_WITH_SENDER_MAIL_ADDRESS",
+    "mailSubject": "Exchange certificate on {{servername}} expires {{expireDate}}",
+    "mailBody": "The Exchange certificate '{{subject}}' on {{servername}} ({{services}}) expires on {{expireDate}}. Renew and re-enable it before then.",
+    "mailRecipients": [
+      "REPLACE_ME_WITH_MAIL_ADDRESS"
+    ]
+  },
+  "teams": {
+    "teamSubject": "Exchange certificate on {{servername}} expires {{expireDate}}",
+    "teamBody": "Not used in the on-prem edition.",
+    "teamWebhookUrl": ""
+  }
+}
