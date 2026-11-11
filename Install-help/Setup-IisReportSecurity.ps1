@@ -1,49 +1,21 @@
 ﻿<#
 System requirements
-    Windows PowerShell 5.1 or PowerShell 7 (run as Administrator) on the IIS server.
-    The server must be domain-joined.
+PSVersion : Windows PowerShell 5.1 or PowerShell 7.x, run as Administrator on the IIS server
 
-psToDo setup helper : Setup-IisReportSecurity (ON-PREMISES EDITION)
-    Author  : Fardin Barashi
-    Purpose : Lock the psToDo HTML dashboard down so ONLY members of the AD group
-              psToDo-Viewers can open it. Everyone else (anonymous and every other
-              domain user) gets 401.
-
-What it does
-    1. Installs the two IIS role services needed, if missing:
-         Windows Authentication (Web-Windows-Auth) and URL Authorization (Web-Url-Auth).
-    2. Looks the group up in AD (name -> SID -> DOMAIN\name). This checks that the group
-       exists and adds the NetBIOS domain prefix that URL Authorization needs.
-    3. Writes web.config into the report folder with an IIS URL Authorization rule that
-       allows only that group (an existing web.config is backed up first).
-    4. On the IIS site/application: enables Windows Authentication and disables Anonymous
-       Authentication. These settings are locked at server level, so they are written to
-       applicationHost.config with a <location> tag - not to web.config.
-    5. Gives the group and the site's app pool identity NTFS Read on the report folder.
-       With Windows Authentication IIS reads index.html AS THE SIGNED-IN USER, and reads
-       web.config as the app pool, so both need Read (skip with -SkipNtfs).
-    6. Optionally creates the site (-CreateSite) with its own app pool, pointing at the
-       report folder.
-
-    Every step is idempotent - safe to re-run.
-
-Parameters
-    -SiteName      IIS site name. Default: 'PsToDo'
-    -AppPath       Sub-application/virtual directory under the site, e.g. 'pstodo'
-                   (leave empty if the site itself points at the report folder)
-    -PhysicalPath  Folder that holds index.html. Default: <psToDo>\Files\report
-    -Group         AD security group allowed to see the dashboard, with or without the
-                   domain prefix. Default: 'psToDo-Viewers'.
-    -CreateSite    Create the IIS site if it does not exist.
-    -Port          HTTP port for -CreateSite (default 8080). Add an https binding afterwards.
-    -SkipFeatureInstall  Do not try to install IIS role services.
-    -SkipNtfs      Do not change NTFS permissions on the report folder.
+About Script :
+Author : Fardin Barashi
+Title : psToDo setup - IIS access for the dashboard
+Description : Only members of one AD group can open the dashboard: Windows Authentication, URL Authorization
+(web.config) and NTFS Read for the group. Safe to run again.
+For more information, please visit the GitHub repository: https://github.com/fardinbarashi/psToDo
 
 Examples
-    .\Setup-IisReportSecurity.ps1 -WhatIf                        # site PsToDo
-    .\Setup-IisReportSecurity.ps1                                # site PsToDo
-    .\Setup-IisReportSecurity.ps1 -CreateSite -Port 8080         # create site PsToDo
-    .\Setup-IisReportSecurity.ps1 -SiteName 'Default Web Site' -AppPath pstodo
+    .\Setup-IisReportSecurity.ps1 -WhatIf
+    .\Setup-IisReportSecurity.ps1 -SiteName PsToDo -Group CONTOSO\psToDo-Viewers
+    .\Setup-IisReportSecurity.ps1 -CreateSite -Port 8080
+
+Version : 1.0-onprem
+Release day : 2026-10-27
 #>
 
 [CmdletBinding(SupportsShouldProcess)]
@@ -106,8 +78,6 @@ Import-Module WebAdministration -ErrorAction Stop
 
 Write-Host '2. Group allowed to see the dashboard' -ForegroundColor Cyan
 try {
-    # name -> SID -> name: proves the group exists and returns it as DOMAIN\Group,
-    # the form IIS URL Authorization matches against the user's token.
     $sid   = (New-Object Security.Principal.NTAccount($Group)).Translate([Security.Principal.SecurityIdentifier])
     $Group = $sid.Translate([Security.Principal.NTAccount]).Value
 }
@@ -126,7 +96,6 @@ if (-not (Test-Path $PhysicalPath)) {
 }
 $webConfigPath = Join-Path $PhysicalPath 'web.config'
 
-# Template: the web.config shipped in Files\report (keeps its comments), else a minimal one.
 $templatePath = Join-Path $repoRoot 'Files\report\web.config'
 $xml = New-Object System.Xml.XmlDocument
 $xml.PreserveWhitespace = $true
@@ -139,9 +108,6 @@ else {
 $authz = $xml.SelectSingleNode('/configuration/system.webServer/security/authorization')
 if (-not $authz) { throw "The existing $webConfigPath has no system.webServer/security/authorization section. Merge it by hand from Files\report\web.config." }
 
-# Rules: clear + allow the viewer group. If the editable dashboard is set up
-# (appSettings psToDo:EditorsGroup, written by Setup-IisReportEditor.ps1), its editors
-# group is allowed in too, so re-running this script never locks the editors out.
 $editorsNode  = $xml.SelectSingleNode("/configuration/appSettings/add[@key='psToDo:EditorsGroup']")
 $editorsGroup = if ($editorsNode) { $editorsNode.GetAttribute('value') } else { '' }
 
@@ -175,7 +141,6 @@ $site = Get-Website -Name $SiteName -ErrorAction SilentlyContinue
 if (-not $site) {
     if (-not $CreateSite) { throw "IIS site '$SiteName' not found. Create it in IIS Manager or re-run with -CreateSite." }
     if ($PSCmdlet.ShouldProcess($SiteName, "Create app pool and site on port $Port -> $PhysicalPath")) {
-        # A dedicated app pool, so the site's identity is 'IIS AppPool\<SiteName>' and not the shared DefaultAppPool.
         if (-not (Test-Path "IIS:\AppPools\$SiteName")) { New-WebAppPool -Name $SiteName | Out-Null }
         New-Website -Name $SiteName -PhysicalPath $PhysicalPath -Port $Port -ApplicationPool $SiteName | Out-Null
         Write-Host "   Created app pool and site '$SiteName' on http port $Port." -ForegroundColor Green
@@ -204,7 +169,7 @@ else {
         if ([string]::IsNullOrWhiteSpace($AppPath)) { $pool = (Get-Item "IIS:\Sites\$SiteName" -ErrorAction Stop).applicationPool }
         else { $pool = (Get-WebApplication -Site $SiteName -Name $AppPath.Trim('/') -ErrorAction Stop).applicationPool }
     } catch { }
-    if (-not $pool -and $CreateSite) { $pool = $SiteName }   # -WhatIf: the site does not exist yet
+    if (-not $pool -and $CreateSite) { $pool = $SiteName }
 
     $grants = @("$($Group):(OI)(CI)R")
     if ($pool) { $grants += "IIS AppPool\$($pool):(OI)(CI)R" } else { Write-Warning "Could not find the app pool of '$location'. Give its identity Read on $PhysicalPath by hand." }

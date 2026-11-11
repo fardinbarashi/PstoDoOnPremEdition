@@ -1,39 +1,19 @@
 ﻿<#
 System requirements
-    Run in the Exchange Management Shell on an on-prem Exchange server, or in a
-    session created with New-PSSession -ConfigurationName Microsoft.Exchange.
-    Needs the "Receive Connectors" RBAC role (Organization Management).
+Exchange Management Shell on the Exchange server
 
-psToDo setup helper : Setup-ExchangeRelayReceiveConnector (ON-PREMISES EDITION)
-    Author  : Fardin Barashi
-    Purpose : Create a dedicated, IP-scoped anonymous relay Receive connector so
-              the psToDo host can submit alert mail with AuthMode = Anonymous.
-              This is the on-prem equivalent of the cloud edition's
-              Setup-SenderMailbox-and-AccessPolicy: it limits WHO can send
-              (only the psToDo host's IP) instead of granting a tenant-wide right.
-
-What it does
-    1. Creates a Frontend Transport Receive connector on the given Exchange
-       server, bound to port 25, that ONLY accepts connections from the psToDo
-       host IP(s) in -RemoteIPRanges. Exchange picks the most specific
-       connector for a source IP, so the default connector is untouched.
-    2. Grants NT AUTHORITY\ANONYMOUS LOGON the ms-Exch-SMTP-Accept-Any-Recipient
-       right on it (accepted domains only unless -AllowExternalRelay).
-    3. Optionally requires TLS (recommended - psToDo uses STARTTLS by default).
-
-    Every step is skipped if the object already exists, so it is safe to re-run.
-
-Parameters
-    -Server           Exchange server that will host the connector (required)
-    -RemoteIPRanges   IP address(es) of the host running psToDo, e.g. 10.10.5.20  (required)
-    -Name             Connector name (default 'psToDo Relay')
-    -Fqdn             FQDN announced in the banner / used for the TLS cert (default: server FQDN)
-    -AllowExternalRelay  Also allow relaying to addresses OUTSIDE the accepted domains.
-    -RequireTls       Reject unencrypted sessions.
+About Script :
+Author : Fardin Barashi
+Title : psToDo setup - Exchange relay Receive connector
+Description : Creates an anonymous relay Receive connector that only accepts the psToDo server IP (AuthMode Anonymous).
+For more information, please visit the GitHub repository: https://github.com/fardinbarashi/psToDo
 
 Examples
     .\Setup-ExchangeRelayReceiveConnector.ps1 -Server mail-01 -RemoteIPRanges 10.10.5.20 -WhatIf
     .\Setup-ExchangeRelayReceiveConnector.ps1 -Server mail-01 -RemoteIPRanges 10.10.5.20 -RequireTls
+
+Version : 1.0-onprem
+Release day : 2026-09-08
 #>
 
 [CmdletBinding(SupportsShouldProcess)]
@@ -77,8 +57,6 @@ elseif ($PSCmdlet.ShouldProcess($identity, 'Create anonymous relay Receive conne
     Write-Host "Created Receive connector '$identity' for $($RemoteIPRanges -join ', ')." -ForegroundColor Green
 }
 
-# Relay permission. Without ms-Exch-SMTP-Accept-Any-Recipient, anonymous senders may only
-# deliver to recipients in accepted domains (which is enough for most psToDo setups).
 if ($AllowExternalRelay -and $existing) {
     $ace = Get-ADPermission -Identity $identity -User 'NT AUTHORITY\ANONYMOUS LOGON' -ErrorAction SilentlyContinue |
            Where-Object { $_.ExtendedRights -match 'ms-Exch-SMTP-Accept-Any-Recipient' }

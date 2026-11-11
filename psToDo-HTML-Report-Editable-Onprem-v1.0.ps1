@@ -1,42 +1,19 @@
 ﻿<#
-.DESCRIPTION
-    SYSTEM REQUIREMENTS : Windows PowerShell 5.1 or PowerShell 7.x. No modules.
+System requirements
+PSVersion : Windows PowerShell 5.1 or PowerShell 7.x
 
-    psToDo (ON-PREMISES EDITION) - editable dashboard.
+About Script :
+Author : Fardin Barashi
+Title : psToDo - editable dashboard, ON-PREMISES EDITION
+Description : Writes Files\report\edit.html and copies psToDo-api.ashx next to it. Editors save through IIS.
+One-time IIS setup: Install-help\Setup-IisReportEditor.ps1
+For more information, please visit the GitHub repository: https://github.com/fardinbarashi/psToDo
 
-    Writes edit.html next to the normal status page. In the browser people can change
-    the monitored objects directly - name, expire date, status, triggers, mail settings -
-    add, duplicate and delete objects, and save straight back to monitorobjects.json.
-
-    How saving works
-      The page itself is static. It loads and saves through psToDo-api.ashx, a small
-      ASP.NET handler in the same IIS folder (this script copies it there from
-      Settings\Web on every run, so the handler is always the shipped version).
-        - Everyone the site lets in can SEE the data.
-        - Only members of the editors group (appSettings psToDo:EditorsGroup in web.config)
-          can SAVE. Others get a read-only page.
-        - Each save is checked against the version the page loaded. If the file changed
-          in between (another editor, a plugin run) the save is refused and nothing is lost.
-        - Each save takes a backup of monitorobjects.json first and is logged
-          (Logs\psToDo-web-edits.log).
-      One-time IIS setup (ASP.NET, editors group, rights): Install-help\Setup-IisReportEditor.ps1
-
-    If the handler cannot be reached (page opened as a file, ASP.NET not installed) the page
-    shows the snapshot embedded below, read-only, and says why.
-
-    The normal report (psToDo-HTML-Report-Onprem-v1.0.ps1) is unchanged and still writes
-    index.html. Both can run side by side.
-
-.EXAMPLE
+Examples
     .\psToDo-HTML-Report-Editable-Onprem-v1.0.ps1
-    .\psToDo-HTML-Report-Editable-Onprem-v1.0.ps1 -websitePath 'C:\inetpub\pstodo\edit.html'
 
-.NOTES
-    Author      : Fardin Barashi
-    Title       : psToDo editable dashboard - ON-PREMISES EDITION
-    Version     : 1.0-onprem
-    Release day : 2026-10-28
-    Github Link : https://github.com/fardinbarashi
+Version : 1.0-onprem
+Release day : 2026-10-28
 #>
 
 #----------------------------------- Settings ------------------------------------------
@@ -50,9 +27,6 @@ param(
     [string] $fileDate = (Get-Date -Format 'yyyy-MM-dd_HH.mm.ss')
 )
 
-# Resolve the folder this script lives in. $PSScriptRoot is empty when the code is
-# run with F8 / "Run Selection" in ISE or VS Code. Fall back to the script path, then
-# to the current folder.
 $scriptRoot = if ($PSScriptRoot) { $PSScriptRoot }
               elseif ($MyInvocation.MyCommand.Path) { Split-Path -Parent $MyInvocation.MyCommand.Path }
               else { (Get-Location).Path }
@@ -64,8 +38,6 @@ if ([string]::IsNullOrWhiteSpace($ApiSourcePath))     { $ApiSourcePath     = "$s
 
 $apiFileName = Split-Path $ApiSourcePath -Leaf
 
-# .NET file calls ([IO.File]) resolve relative paths against the PROCESS folder, not the
-# PowerShell location. Make every path absolute first, so -websitePath .\x.html works.
 $JsonPath = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($JsonPath)
 $websitePath = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($websitePath)
 $backupWebsitePath = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($backupWebsitePath)
@@ -94,12 +66,10 @@ try {
     $raw = $raw.TrimStart([char]0xFEFF).Trim()
     if ($raw.Length -eq 0) { $raw = '[]' }
 
-    # Validate only - the page gets the file text unchanged, so no field is ever lost.
     try   { $objects = @(($raw | ConvertFrom-Json)) }
     catch { throw "Failed to parse JSON in '$JsonPath': $($_.Exception.Message)" }
     Write-Host "- $($objects.Count) object(s) read." -ForegroundColor DarkGray
 
-    # Base64 so nothing in the data (</script>, quotes, non-ASCII) can break the page.
     $snapshotB64 = [Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes($raw))
 
     Write-Host "Start $Section ... 100%" -ForegroundColor Green
@@ -127,7 +97,6 @@ try {
         if ($template.IndexOf($token) -lt 0) { throw "The template is missing the placeholder $token." }
     }
 
-    # .Replace (literal), not -replace (regex): the data must never be read as a pattern.
     $html = $template.Replace('__PSTODO_SNAPSHOT_B64__', $snapshotB64)
     $html = $html.Replace('__PSTODO_API_URL__', $apiFileName)
     $html = $html.Replace('__PSTODO_GENERATED__', (Get-Date -Format 'yyyy-MM-dd HH:mm'))
@@ -153,7 +122,6 @@ try {
     $outDir = Split-Path $websitePath -Parent
     if ($outDir -and -not (Test-Path $outDir)) { New-Item -ItemType Directory -Path $outDir -Force | Out-Null }
 
-    # UTF-8 without BOM for the page (the <meta charset> declares it).
     [System.IO.File]::WriteAllText($websitePath, $html, (New-Object System.Text.UTF8Encoding($false)))
     Write-Host "- Page written: $websitePath" -ForegroundColor Green
 
@@ -162,7 +130,6 @@ try {
     Copy-Item -Path $websitePath -Destination $backupWebsitePath -Force
     Write-Host "- Backup written: $backupWebsitePath" -ForegroundColor DarkGray
 
-    # Keep the handler next to the page identical to the shipped one.
     if (Test-Path $ApiSourcePath) {
         $apiTarget = Join-Path $outDir $apiFileName
         $same = $false
@@ -177,7 +144,6 @@ try {
     }
     else { Write-Warning "Save handler not found at $ApiSourcePath - the page will open read-only (snapshot)." }
 
-    # Friendly hints if the one-time IIS setup has not been done for this folder.
     $webConfig = Join-Path $outDir 'web.config'
     if (-not (Test-Path $webConfig)) {
         Write-Warning "No web.config in $outDir. Run Install-help\Setup-IisReportSecurity.ps1 and Install-help\Setup-IisReportEditor.ps1."

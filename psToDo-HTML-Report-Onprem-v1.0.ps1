@@ -1,46 +1,20 @@
 ﻿<#
-.DESCRIPTION
-    SYSTEM REQUIREMENTS : Windows PowerShell 5.1 or PowerShell 7.x. No modules.
+System requirements
+PSVersion : Windows PowerShell 5.1 or PowerShell 7.x
 
-    psToDo (ON-PREMISES EDITION) - status dashboard.
+About Script :
+Author : Fardin Barashi
+Title : psToDo - HTML report, ON-PREMISES EDITION
+Description : Writes the status dashboard Files\report\index.html from monitorobjects.json and sent-state.json.
+Settings: Settings\Config\report-settings.json.
+For more information, please visit the GitHub repository: https://github.com/fardinbarashi/psToDo
 
-    Reads monitorobjects.json and sent-state.json and writes index.html: a self-contained
-    status page for IIS (no external files, works on an isolated network).
-
-    What the page shows
-      - Header with your organisation name and logo (Settings\Config\report-settings.json).
-      - Key figures, and a warning when the report is older than StaleAfterHours
-        (= the scheduled report run has stopped).
-      - A timeline of everything that expires in the next TimelineDays days.
-      - Tables per tab: Monitored, Completed, No channel, No credentials, Not monitored.
-        Columns: owner, expiry, days left, urgency, NEXT alert (date + channel) and
-        LAST alert (from sent-state.json).
-      - A detail view per object with its alert history: sent / due / waiting / skipped.
-      - CSV export, print view, light and dark theme following the Windows setting,
-        English or Swedish (Language in report-settings.json).
-
-    Urgency follows the alert script: triggers are sorted ascending and the smallest is
-    the most urgent because it sits closest to expiry.
-        daysLeft < 0              -> expired
-        daysLeft <= smallest      -> critical
-        daysLeft <= second        -> warning
-        otherwise                 -> ok
-
-    Completed objects are COPIED (not moved) to Files\config\MonitorObjectComplete.json,
-    and the Completed tab is built from that file, exactly as before.
-
-.EXAMPLE
+Examples
     .\psToDo-HTML-Report-Onprem-v1.0.ps1
     .\psToDo-HTML-Report-Onprem-v1.0.ps1 -Language sv -OrganizationName 'Contoso IT'
-    .\psToDo-HTML-Report-Onprem-v1.0.ps1 -websitePath 'C:\inetpub\pstodo\index.html'
 
-.NOTES
-    Author      : Fardin Barashi
-    Title       : psToDo Calendar Reminder - HTML report, ON-PREMISES EDITION
-    Version     : 1.1-onprem (based on psToDo 1.3)
-    Release day : 2026-11-06
-    Github Link : https://github.com/fardinbarashi
-    File name kept at -v1.0 so existing scheduled tasks keep working.
+Version : 1.1-onprem
+Release day : 2026-11-06
 #>
 
 #----------------------------------- Settings ------------------------------------------
@@ -62,14 +36,10 @@ param(
     [string[]] $TriggerKeys = @('1dateTrigger', '2dateTrigger', '3dateTrigger')
 )
 
-# Resolve the folder this script lives in. $PSScriptRoot is empty when the code is
-# run with F8 / "Run Selection" in ISE or VS Code, or pasted into a console.
 $scriptRoot = if ($PSScriptRoot) { $PSScriptRoot }
               elseif ($MyInvocation.MyCommand.Path) { Split-Path -Parent $MyInvocation.MyCommand.Path }
               else { (Get-Location).Path }
 
-# Windows PowerShell 5.1: its built-in type data for System.Array makes ConvertTo-Json
-# write arrays as {"value":[...],"Count":n}. Removing it gives plain JSON arrays, like PS 7.
 Remove-TypeData -TypeName System.Array -ErrorAction SilentlyContinue
 
 if ([string]::IsNullOrWhiteSpace($JsonPath))           { $JsonPath           = "$scriptRoot\Files\db\monitorobjects.json" }
@@ -81,8 +51,6 @@ if ([string]::IsNullOrWhiteSpace($TemplatePath))       { $TemplatePath       = "
 if ([string]::IsNullOrWhiteSpace($websitePath))        { $websitePath        = "$scriptRoot\Files\report\index.html" }
 if ([string]::IsNullOrWhiteSpace($backupWebsitePath))  { $backupWebsitePath  = "$scriptRoot\Files\backup\psToDo-HTML-Report\index-$($fileDate).html" }
 
-# .NET file calls ([IO.File]) resolve relative paths against the PROCESS folder, not the
-# PowerShell location. Make every path absolute first, so -websitePath .\x.html works.
 $JsonPath = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($JsonPath)
 $CompleteJsonPath = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($CompleteJsonPath)
 $StatePath = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($StatePath)
@@ -94,7 +62,7 @@ $backupWebsitePath = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPa
 
 # Transcript
 $ScriptName        = $MyInvocation.MyCommand.Name
-$LogFileDate       = Get-Date -Format 'yyyy-MM-dd_HH.mm.ss'   # no '/' - it is a path separator
+$LogFileDate       = Get-Date -Format 'yyyy-MM-dd_HH.mm.ss'
 $TranScriptLogFile = "$scriptRoot\Logs\$ScriptName - $LogFileDate.txt"
 Start-Transcript -Path $TranScriptLogFile -Force | Out-Null
 Get-Date -Format 'yyyy/MM/dd HH:mm:ss'
@@ -116,7 +84,6 @@ foreach ($file in $functionFiles) {
 Write-Host "All $($functionFiles.Count) function file(s) loaded." -ForegroundColor Green
 Write-Host ''
 
-# Turn a value from ConvertFrom-Json into an ISO 8601 string (PS 7 turns ISO strings into DateTime).
 function ConvertTo-IsoText {
     param($Value)
     if ($null -eq $Value) { return $null }
@@ -256,8 +223,6 @@ try {
     $noCreds       = [System.Collections.Generic.List[object]]::new()
     $placeholder   = 0
 
-    # One display row. Objects without a usable date or triggers get an "inventory" row
-    # (shown, never alerts) - used for Completed objects.
     function New-ReportRow {
         param($Object, [switch] $Completed)
 
@@ -312,7 +277,6 @@ try {
     foreach ($object in $monitoredObjectsRaw) {
         $label = "Object $($object.id) - $($object.name)"
 
-        # App registrations with no secret and no certificate get their own tab.
         if ($object.noCredentials -eq $true -or ($object.source -eq 'EntraAppReg' -and [string]::IsNullOrWhiteSpace($object.expireDate))) {
             $noCreds.Add([ordered]@{
                 id = "$($object.id)"; name = "$($object.name)"; owner = "$($object.owner)"; server = "$($object.servername)"
@@ -401,7 +365,6 @@ try {
     foreach ($token in '__PSTODO_DATA_B64__', '__PSTODO_LANG__') {
         if ($template.IndexOf($token) -lt 0) { throw "The template is missing the placeholder $token." }
     }
-    # .Replace (literal), not -replace (regex): the data must never be read as a pattern.
     $html = $template.Replace('__PSTODO_DATA_B64__', $dataB64)
     $html = $html.Replace('__PSTODO_LANG__', $Language)
 

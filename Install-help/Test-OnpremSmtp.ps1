@@ -1,17 +1,19 @@
 ﻿<#
-psToDo setup helper : Test-OnpremSmtp (ON-PREMISES EDITION)
-    Author  : Fardin Barashi
-    Purpose : Send one test mail through the on-prem Exchange server using
-              exactly the same settings file and functions as psToDo-Onprem.
-              Run this once after editing Settings\Config\ExchangeOnpremSettings.json.
+System requirements
+PSVersion : Windows PowerShell 5.1 or PowerShell 7.x
 
-Parameters
-    -To     Recipient address (required)
-    -From   Sender address. Default: the first mailSender found in Files\db\monitorobjects.json
+About Script :
+Author : Fardin Barashi
+Title : psToDo setup - SMTP test
+Description : Sends one test mail with the settings in ExchangeOnpremSettings.json.
+For more information, please visit the GitHub repository: https://github.com/fardinbarashi/psToDo
 
 Examples
     .\Test-OnpremSmtp.ps1 -To you@lab.local
     .\Test-OnpremSmtp.ps1 -To you@lab.local -From pstodo-noreply@lab.local
+
+Version : 1.0-onprem
+Release day : 2026-09-08
 #>
 
 [CmdletBinding()]
@@ -20,14 +22,9 @@ param(
     [string] $From
 )
 
-# Resolve the folder this script lives in. $PSScriptRoot is empty when the code is
-# run with F8 / "Run Selection" in ISE or VS Code, or pasted into a console, which
-# turns every path into "\Files\..." on the current drive. Fall back to the script
-# path, then to the current folder.
 $scriptRoot = if ($PSScriptRoot) { $PSScriptRoot }
               elseif ($MyInvocation.MyCommand.Path) { Split-Path -Parent $MyInvocation.MyCommand.Path }
               else { (Get-Location).Path }
-
 
 $ErrorActionPreference = 'Stop'
 
@@ -49,7 +46,6 @@ Write-Host "Settings : $($settings.SmtpServer):$($settings.SmtpPort) TLS=$($sett
 
 Connect-OnpremExchangeSmtp -Settings $settings | Out-Null
 
-# Fake alert so the real Send-AlertMail / Format-AlertMailBody path is exercised.
 $alert = [pscustomobject]@{
     id = 'TEST'; name = 'psToDo on-prem SMTP test'; servername = $env:COMPUTERNAME; template = 'Test'
     environment = 'test'; action = 'No action - this is a connectivity test from Install-help\Test-OnpremSmtp.ps1.'

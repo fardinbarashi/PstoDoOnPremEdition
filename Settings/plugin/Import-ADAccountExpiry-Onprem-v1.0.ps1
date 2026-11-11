@@ -1,59 +1,22 @@
 ﻿<#
 System requirements
-    PSVersion  5.1 (Desktop) or 7.x (Core)
-    Module     ActiveDirectory (RSAT: Active Directory Domain Services and
-               Lightweight Directory Services Tools). No download is attempted -
-               install RSAT on the host first:
-                 Add-WindowsCapability -Online -Name Rsat.ActiveDirectory.DS-LDS.Tools~~~~0.0.1.0
-    Rights     Any domain user can read the attributes used here.
+PSVersion : Windows PowerShell 5.1 or PowerShell 7.x
+Module : ActiveDirectory (RSAT)
 
-psToDo plugin : Import-ADAccountExpiry (ON-PREMISES EDITION)
-    Author  : Fardin Barashi
-    Title   : psToDo - Active Directory account & password expiry importer
-    Purpose : On-prem counterpart of the cloud edition's Entra app registration
-              importer. Where the cloud edition watches app secrets and
-              certificates expiring in Entra ID, this plugin watches
-                 (a) user accounts with an AccountExpirationDate, and
-                 (b) service accounts whose password will expire
-                     (msDS-UserPasswordExpiryTimeComputed),
-              and merges those dates into Files\db\monitorobjects.json.
-              It only talks to a domain controller (LDAP) - nothing else.
-
-Behaviour
-    1. Reads accounts from the OUs / groups configured in
-       Settings\plugin\adaccount\config\adaccount-defaults.json.
-    2. Each expiring thing becomes ONE monitored object:
-         - "<name> - account expiry"   (accountExpires)
-         - "<name> - password expiry"  (password policy / FGPP)
-       Accounts with PasswordNeverExpires and accounts that never expire are
-       ignored. Disabled accounts are skipped when excludeDisabled is true.
-    3. Fields AD does NOT provide (template, environment, triggers, mail, ...)
-       are taken from adaccount-defaults.json. The tokens {{name}},
-       {{expireDate}}, {{servername}}, {{environment}}, {{samAccountName}},
-       {{distinguishedName}} and {{expiryType}} are replaced per object.
-    4. BEFORE writing anything it takes a timestamped backup of
-       monitorobjects.json into Files\backup\psToDo\.
-    5. It MERGES rather than overwrites:
-         - existing manual objects are never touched
-         - objects previously imported by this plugin (matched on
-           adAccountKey = "<objectGUID>|account" or "<objectGUID>|password")
-           get their expireDate refreshed (unless -NoDateRefresh)
-         - new items are appended with a fresh numeric id
-       Imported objects carry the extra fields "source", "adAccountKey",
-       "samAccountName", "distinguishedName" and "expiryType", so re-runs are
-       idempotent. The psToDo scripts ignore unknown fields, so this is safe.
-
-Switches
-    -UseMockData   Skip AD completely and use built-in sample accounts.
-    -NoDateRefresh Do not update expireDate on already-imported objects.
-    -DomainController  Query a specific DC instead of the closest one.
-    -WhatIf        Show what would change without writing (SupportsShouldProcess).
+About Script :
+Author : Fardin Barashi
+Title : psToDo plugin - AD account and password expiry
+Description : Imports account and password expiry dates from Active Directory into monitorobjects.json.
+Defaults: Settings\plugin\adaccount\config\adaccount-defaults.json
+For more information, please visit the GitHub repository: https://github.com/fardinbarashi/psToDo
 
 Examples
     .\Import-ADAccountExpiry-Onprem-v1.0.ps1 -UseMockData -WhatIf
-    .\Import-ADAccountExpiry-Onprem-v1.0.ps1 -UseMockData
     .\Import-ADAccountExpiry-Onprem-v1.0.ps1
     .\Import-ADAccountExpiry-Onprem-v1.0.ps1 -DomainController dc-01.lab.local
+
+Version : 1.0-onprem
+Release day : 2026-09-08
 #>
 
 [CmdletBinding(SupportsShouldProcess)]
@@ -63,18 +26,11 @@ param(
     [string] $DomainController
 )
 
-# Resolve the folder this script lives in. $PSScriptRoot is empty when the code is
-# run with F8 / "Run Selection" in ISE or VS Code, or pasted into a console, which
-# turns every path into "\Files\..." on the current drive. Fall back to the script
-# path, then to the current folder.
 $scriptRoot = if ($PSScriptRoot) { $PSScriptRoot }
               elseif ($MyInvocation.MyCommand.Path) { Split-Path -Parent $MyInvocation.MyCommand.Path }
               else { (Get-Location).Path }
 
-# Windows PowerShell 5.1: its built-in type data for System.Array makes ConvertTo-Json
-# write arrays as {"value":[...],"Count":n}. Removing it gives plain JSON arrays, like PS 7.
 Remove-TypeData -TypeName System.Array -ErrorAction SilentlyContinue
-
 
 $ErrorActionPreference = 'Stop'
 
@@ -92,7 +48,7 @@ $functionFolder        = Join-Path $repoRoot 'Settings\Functions\psToDo'
 
 $expireDateFormat = 'yyyy-MM-dd'
 
-#------------------------------- Helpers -----------------------------
+#------------------------------- Functions -----------------------------
 
 function Expand-Tokens {
     param(
@@ -106,11 +62,10 @@ function Expand-Tokens {
     return $Text
 }
 
-# Build one ordered monitored object from the defaults template + one expiring AD item.
 function New-MonitorObjectFromAccount {
     param(
         [Parameter(Mandatory)] $Defaults,
-        [Parameter(Mandatory)] $Item,      # PSCustomObject: Name, ExpireDate, ServerName, Key, SamAccountName, DistinguishedName, ExpiryType
+        [Parameter(Mandatory)] $Item,
         [Parameter(Mandatory)] [int] $Id,
         [string] $Environment
     )
@@ -165,9 +120,6 @@ function New-MonitorObjectFromAccount {
     }
 }
 
-# Turn raw user records into a flat list of expiring items.
-# A raw record has: ObjectGuid, Name, SamAccountName, DistinguishedName, Enabled,
-# AccountExpirationDate, PasswordNeverExpires, PasswordExpiry (datetime or $null), WatchPassword (bool), Domain
 function Get-ExpiryItemList {
     param(
         [Parameter(Mandatory)] $Users,
@@ -209,7 +161,6 @@ function Get-ExpiryItemList {
     return $list
 }
 
-# Built-in sample data so the merge/backup logic can be tested without a domain.
 function Get-MockUsers {
     [pscustomobject]@{ ObjectGuid = '10000000-0000-0000-0000-000000000001'; Name = 'svc-backup';    SamAccountName = 'svc-backup';    DistinguishedName = 'CN=svc-backup,OU=Service Accounts,DC=lab,DC=local';    Enabled = $true;  AccountExpirationDate = $null;                    PasswordNeverExpires = $false; PasswordExpiry = (Get-Date).AddDays(12);  WatchPassword = $true;  Domain = 'lab.local' }
     [pscustomobject]@{ ObjectGuid = '10000000-0000-0000-0000-000000000002'; Name = 'svc-sql-agent'; SamAccountName = 'svc-sql-agent'; DistinguishedName = 'CN=svc-sql-agent,OU=Service Accounts,DC=lab,DC=local'; Enabled = $true;  AccountExpirationDate = $null;                    PasswordNeverExpires = $true;  PasswordExpiry = $null;                   WatchPassword = $true;  Domain = 'lab.local' }
@@ -265,7 +216,6 @@ if ($UseMockData) {
 
     $props = 'Name', 'SamAccountName', 'DistinguishedName', 'Enabled', 'AccountExpirationDate', 'PasswordNeverExpires', 'ObjectGUID', 'msDS-UserPasswordExpiryTimeComputed'
 
-    # (a) account-expiry candidates: every enabled user in the search bases with accountExpires set
     $searchBases = @($defaults.searchBases | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
     if (-not $searchBases) { $searchBases = @($domain.DistinguishedName) }
 
@@ -278,7 +228,6 @@ if ($UseMockData) {
         }
     }
 
-    # (b) password-expiry candidates: users in the configured OUs / groups
     $pwWatch = @{}
     if ($includePasswordExpiry) {
         foreach ($sb in @($defaults.passwordExpirySearchBases | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })) {

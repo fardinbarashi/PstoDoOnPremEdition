@@ -1,15 +1,5 @@
 ﻿function Test-RequiredModule {
-    <#
-        On-prem replacement for Initialize-RequiredModules.
-
-        The cloud edition installs missing modules from the PowerShell Gallery.
-        The on-prem edition never touches the internet, so this only CHECKS
-        that a module is present and tells you how to install it (RSAT /
-        Exchange Management Tools) if it is not.
-
-        The main script needs no modules at all - System.Net.Mail ships with
-        .NET. Only the plugins call this.
-    #>
+    # On-prem replacement for Initialize-RequiredModules.
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)] [string[]] $Modules,

@@ -1,49 +1,19 @@
 ﻿<#
 System requirements
-    Windows PowerShell 5.1 or PowerShell 7 (run as Administrator) on the IIS server.
-    Run Setup-IisReportSecurity.ps1 FIRST: this script builds on its site and web.config.
+PSVersion : Windows PowerShell 5.1 or PowerShell 7.x, run as Administrator on the IIS server
 
-psToDo setup helper : Setup-IisReportEditor (ON-PREMISES EDITION)
-    Author  : Fardin Barashi
-    Purpose : Turn on saving for the editable dashboard (edit.html), so members of ONE AD
-              group can change monitorobjects.json from the browser. Everyone else who can
-              open the site keeps a read-only view.
-
-What it does
-    1. Installs ASP.NET 4.x for IIS (Web-Asp-Net45) if missing - the save handler
-       psToDo-api.ashx is a small ASP.NET handler.
-    2. Makes sure the site's app pool runs .NET CLR v4.0.
-    3. Looks the editors group up in AD (name -> SID -> DOMAIN\name).
-    4. web.config (a backup is taken first):
-         - allows the editors group into the site (URL Authorization), next to the viewers
-         - allows the .ashx extension through request filtering
-         - appSettings: psToDo:EditorsGroup, psToDo:DbPath, psToDo:BackupFolder, psToDo:EditLog
-    5. NTFS:
-         - the app pool identity gets Modify on the db folder, the backup folder and the
-           log folder (the handler runs as the app pool, not as the signed-in user)
-         - the editors group gets Read on the report folder (IIS reads the page as the user)
-    6. Copies psToDo-api.ashx into the report folder if it is not there yet.
-
-    Every step is idempotent - safe to re-run.
-
-Security note
-    Editors can change who gets alert mail and what it says; the mail is then sent by the
-    psToDo service account. Keep the editors group small. Every save is logged with the
-    user name in Logs\psToDo-web-edits.log and backed up in Files\backup\psToDo.
-
-Parameters
-    -SiteName      IIS site name. Default: 'psToDo'
-    -AppPath       Sub-application under the site, e.g. 'pstodo' (empty = the site itself)
-    -EditorsGroup  AD security group allowed to save. Default: 'psToDo-Editors'
-    -PhysicalPath  Folder that holds edit.html. Default: <psToDo>\Files\report
-    -DbPath        monitorobjects.json. Default: <psToDo>\Files\db\monitorobjects.json
-    -BackupFolder  Default: <psToDo>\Files\backup\psToDo
-    -LogFolder     Default: <psToDo>\Logs
-    -SkipFeatureInstall, -SkipNtfs
+About Script :
+Author : Fardin Barashi
+Title : psToDo setup - saving from the editable dashboard
+Description : Members of one AD editors group can save in edit.html: ASP.NET, web.config and NTFS rights. Safe to run again.
+For more information, please visit the GitHub repository: https://github.com/fardinbarashi/psToDo
 
 Examples
     .\Setup-IisReportEditor.ps1 -WhatIf
-    .\Setup-IisReportEditor.ps1 -SiteName psToDo -EditorsGroup 'CONTOSO\psToDo-Editors'
+    .\Setup-IisReportEditor.ps1 -SiteName PsToDo -EditorsGroup 'CONTOSO\psToDo-Editors'
+
+Version : 1.0-onprem
+Release day : 2026-10-28
 #>
 
 [CmdletBinding(SupportsShouldProcess)]
@@ -148,7 +118,6 @@ function Get-OrAddNode([System.Xml.XmlNode] $parent, [string] $name) {
     return $node
 }
 
-# a) URL Authorization: editors may enter the site too.
 $authz = $xml.SelectSingleNode('/configuration/system.webServer/security/authorization')
 if (-not $authz) { throw "web.config has no system.webServer/security/authorization. Run Setup-IisReportSecurity.ps1 first." }
 $oldEditors = $xml.SelectSingleNode("/configuration/appSettings/add[@key='psToDo:EditorsGroup']")
@@ -165,7 +134,6 @@ if (-not $already) {
     [void]$authz.AppendChild($allow)
 }
 
-# b) Request filtering: let .ashx through when only listed extensions are allowed.
 $fe = $xml.SelectSingleNode('/configuration/system.webServer/security/requestFiltering/fileExtensions')
 if ($fe -and -not $fe.SelectSingleNode("add[@fileExtension='.ashx']")) {
     $ext = $xml.CreateElement('add')
@@ -174,7 +142,6 @@ if ($fe -and -not $fe.SelectSingleNode("add[@fileExtension='.ashx']")) {
     [void]$fe.AppendChild($ext)
 }
 
-# c) appSettings read by psToDo-api.ashx. Absolute paths: the handler runs from the site folder.
 $appSettings = Get-OrAddNode $config 'appSettings'
 $settings = [ordered]@{
     'psToDo:EditorsGroup' = $EditorsGroup

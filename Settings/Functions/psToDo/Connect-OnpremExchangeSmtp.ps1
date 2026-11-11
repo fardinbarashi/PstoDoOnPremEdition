@@ -1,27 +1,5 @@
 ﻿function Connect-OnpremExchangeSmtp {
-    <#
-        On-prem replacement for Connect-CalenderReminderGraph.
-
-        Builds a System.Net.Mail.SmtpClient pointed at the on-prem Exchange
-        server, verifies that the SMTP port answers, and stores the client in
-        $script:OnpremSmtpClient for Send-AlertMail to use.
-
-        Nothing leaves the LAN: the only network traffic psToDo generates is
-        SMTP to the host named in ExchangeOnpremSettings.json.
-
-        Exchange side (one of):
-          - Anonymous : a dedicated Receive connector (Frontend Transport, port 25)
-                        with RemoteIPRanges = this host's IP and the
-                        ms-Exch-SMTP-Accept-Any-Recipient right for
-                        NT AUTHORITY\ANONYMOUS LOGON. See
-                        Install-help\Setup-ExchangeRelayReceiveConnector.ps1
-          - CurrentUser : the scheduled-task account is a domain account that
-                        has a mailbox or Send-As on the sender mailbox. Uses
-                        the default "Client Frontend" connector (587) with
-                        Integrated Windows auth.
-          - Credential : a service account + password stored with
-                        Install-help\New-SmtpCredentialFile.ps1 (DPAPI).
-    #>
+    # On-prem replacement for Connect-CalenderReminderGraph.
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)] $Settings,
@@ -40,10 +18,9 @@
     catch {
         throw "Cannot reach the on-prem Exchange SMTP endpoint $($Settings.SmtpServer):$($Settings.SmtpPort) - $($_.Exception.Message)"
     }
-    finally { $tcp.Close() }   # Close(), not Dispose(): TcpClient.Dispose() is not public on older .NET Framework (PS 5.1)
+    finally { $tcp.Close() }
 
     # --- 2. TLS version. Windows PowerShell 5.1 (.NET Framework) may still default to TLS 1.0/1.1,
-    #        which Exchange 2016/2019/SE with TLS 1.2-only hardening rejects during STARTTLS. ---
     try {
         [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor [System.Net.SecurityProtocolType]::Tls12
     } catch { Write-Verbose "Could not enable TLS 1.2: $($_.Exception.Message)" }
@@ -89,7 +66,6 @@
 }
 
 function Disconnect-OnpremExchangeSmtp {
-    # Counterpart to Disconnect-MgGraph in the cloud edition. Releases the client.
     [CmdletBinding()]
     param()
     if ($script:OnpremSmtpClient) {

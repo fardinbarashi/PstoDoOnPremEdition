@@ -191,7 +191,7 @@ Set your organisation name, logo and language in `Settings\Config\report-setting
     Add-ADGroupMember -Identity "psToDo-Viewers" -Members alice, bob
     ```
 
-2. On the IIS server, as Administrator, run the helper. It installs Windows Authentication and URL Authorization, writes `web.config` next to `index.html` with your group, sets Windows Authentication on and Anonymous off for the site, and gives the group and the app pool Read on the folder:
+2. On the IIS server, as Administrator, run `Install-help\Setup-IisReportSecurity.ps1`. It installs Windows Authentication and URL Authorization, writes `web.config` next to `index.html` with your group, sets Windows Authentication on and Anonymous off for the site, and gives the group and the app pool Read on the folder:
 
     ```powershell
     .\Install-help\Setup-IisReportSecurity.ps1 -SiteName psToDo -Group "CONTOSO\psToDo-Viewers" -CreateSite -Port 8080 -WhatIf
@@ -200,7 +200,7 @@ Set your organisation name, logo and language in `Settings\Config\report-setting
 
     Leave out `-CreateSite -Port` if the site already exists. If the site points at another folder, add `-PhysicalPath` and run the report with `-websitePath "<that folder>\index.html"`.
 
-3. Check the NTFS rights the helper set on the report folder (`Files\report`). With Windows Authentication, IIS reads the page **as the signed-in user** and reads `web.config` as the site's app pool, so both need Read. With `-CreateSite` the site gets its own app pool, `IIS AppPool\psToDo`. If you skipped this with `-SkipNtfs`, set it by hand:
+3. Check the NTFS rights the script set on the report folder (`Files\report`). With Windows Authentication, IIS reads the page **as the signed-in user** and reads `web.config` as the site's app pool, so both need Read. With `-CreateSite` the site gets its own app pool, `IIS AppPool\psToDo`. If you skipped this with `-SkipNtfs`, set it by hand:
 
     ```powershell
     icacls "D:\Automation\psToDo\Files\report" /grant "CONTOSO\psToDo-Viewers:(OI)(CI)R"
@@ -312,7 +312,7 @@ Start with the newest transcript in `Logs\`.
 | Modules | `Microsoft.Graph.*`, auto-installed from PSGallery | **None** for the main script and the report. Plugins need the Exchange remote PowerShell endpoint / the RSAT `ActiveDirectory` module — never downloaded automatically. |
 | Importer plugins | Entra app registrations, M365 Message Center | The same two cloud importers (optional, need Graph) **plus** on-prem importers for **Exchange certificates** and **AD account / service-account password expiry** |
 | Dashboard | Monitored / Completed / No channel / No credentials / Not monitored | Same tabs. Teams shown as "n/a on-prem". Understands the new `source` values. |
-| Install helpers | Shared mailbox + Application Access Policy, self-signed cert | DPAPI credential file, SMTP test, IIS access setup, relay Receive connector, and the self-signed cert helper for the cloud importers |
+| Install-help | Shared mailbox + Application Access Policy, self-signed cert | DPAPI credential file, SMTP test, IIS access setup, relay Receive connector, and the self-signed cert script for the cloud importers |
 
 Everything else — trigger windows, state file, backups, Kanban status, completed archive, JSON layout — is unchanged, so an existing `monitorobjects.json` from the cloud edition works as-is (Entra/Message Center rows keep working as ordinary manual rows).
 
@@ -329,7 +329,7 @@ Everything else — trigger windows, state file, backups, Kanban status, complet
 | `Settings\plugin\Import-ADAccountExpiry-Onprem-v1.0.ps1` | Imports AD account expiry and service-account password expiry. |
 | `Settings\plugin\Import-EntraAppRegistrations-v1.3.ps1` (+ `-Delegated`) | Cloud importer: Entra app registration secrets and certificates. Needs Graph. |
 | `Settings\plugin\Import-M365MessageCenter-v1.1.3.ps1` (+ `-Delegated-v1.3`) | Cloud importer: Message Center advisories with a deadline. Needs Graph. |
-| `Install-help\*` | One-time setup and test helpers (see below). |
+| `Install-help\*` | One-time setup and test scripts (see below). |
 
 Function files live in `Settings\Functions\psToDo`:
 
@@ -342,7 +342,7 @@ Function files live in `Settings\Functions\psToDo`:
 | `Test-RequiredModule.ps1` | Checks a module is present; never installs anything. |
 | `Format-AlertMailBody.ps1`, `Get-AlertPresentation.ps1`, `Get-SentState.ps1`, `Save-SentState.ps1` | Unchanged from the cloud edition. |
 
-The Graph helpers used by the cloud importers (`Connect-CalenderReminderGraph.ps1`, `Initialize-RequiredModules.ps1`) live in a separate folder, `Settings\Functions\cloud-plugins`, so the main script never loads anything Graph-related.
+The Graph functions used by the cloud importers (`Connect-CalenderReminderGraph.ps1`, `Initialize-RequiredModules.ps1`) live in a separate folder, `Settings\Functions\cloud-plugins`, so the main script never loads anything Graph-related.
 
 ---
 
@@ -440,7 +440,7 @@ Mail subject gets a `[NOTICE]` / `[WARNING]` / `[CRITICAL]` / `[EXPIRED]` prefix
 | `notifyMethodbyTeams` | no | Ignored in the on-prem edition. |
 | `mail.mailSender`, `mail.mailRecipients` | yes for mail | Sender address and array of recipients. |
 | `mail.mailSubject`, `mail.mailBody` | no | Subject gets the urgency prefix; body is placed above the fact table. |
-| `source`, `exchangeCertKey`, `adAccountKey`, … | plugin-written | Identity fields for idempotent re-imports. Do not edit. |
+| `source`, `exchangeCertKey`, `adAccountKey`, … | plugin-written | Identity fields so a re-import updates the same object. Do not edit. |
 
 ---
 
@@ -473,7 +473,7 @@ Always run with `-WhatIf` first:
 ```
 
 ### Cloud importers — specifics
-Copied from psToDo 1.3 and behave the same way, with two differences: they load their Graph helpers from `Settings\Functions\cloud-plugins`, and the Entra importers have a fix for a crash on re-run (`Cannot convert null to type "System.DateTime"`) when an app registration without credentials was already imported. Configuration: `Settings\Config\MsGraphSettings.json` and `Settings\plugin\entra\config` / `messagecenter\config`, exactly as in the cloud edition. Apps without secrets or certificates appear in the dashboard's **No credentials** tab. See the [cloud README](https://github.com/fardinbarashi/psToDo#plugins-importers) for permissions and the delegated sign-in options.
+Copied from psToDo 1.3 and behave the same way, with two differences: they load their Graph functions from `Settings\Functions\cloud-plugins`, and the Entra importers have a fix for a crash on re-run (`Cannot convert null to type "System.DateTime"`) when an app registration without credentials was already imported. Configuration: `Settings\Config\MsGraphSettings.json` and `Settings\plugin\entra\config` / `messagecenter\config`, exactly as in the cloud edition. Apps without secrets or certificates appear in the dashboard's **No credentials** tab. See the [cloud README](https://github.com/fardinbarashi/psToDo#plugins-importers) for permissions and the delegated sign-in options.
 
 ### Exchange certificate importer — specifics
 Imports **only** `Get-ExchangeServer` and `Get-ExchangeCertificate` from the remote session. Self-signed certificates and certificates bound to no service are skipped by default (`includeSelfSigned` / `includeServicesNone` in `exchangecert\config\exchangecert-defaults.json`). Use `-Server mail-01, mail-02` to limit the scope. Tokens: `{{name}}`, `{{expireDate}}`, `{{servername}}`, `{{environment}}`, `{{thumbprint}}`, `{{subject}}`, `{{services}}`. Environment tag: `Exchange on-prem - <domain>`. Extra fields written: `thumbprint`, `subject`, `services`.
@@ -521,7 +521,7 @@ The page reads `sent-state.json` but never changes it. "Next alert" uses the sam
 | `TimelineDays` | `90` | How far ahead the timeline reaches |
 | `ExpiredNotifyDays` | `7` | Must match `$expiredNotifyDays` in the alert script |
 
-Access is limited by `Files\report\web.config` (see [step 10](#10-publish-the-dashboard-in-iis)). It uses IIS **URL Authorization** (`system.webServer/security/authorization`), which also protects static files. A `system.web/authorization` rule would not: it only applies to ASP.NET requests, so a static `index.html` would stay open. Windows Authentication on and Anonymous off cannot be set in `web.config` (that gives HTTP 500.19); the helper sets them on the site.
+Access is limited by `Files\report\web.config` (see [step 10](#10-publish-the-dashboard-in-iis)). It uses IIS **URL Authorization** (`system.webServer/security/authorization`), which also protects static files. A `system.web/authorization` rule would not: it only applies to ASP.NET requests, so a static `index.html` would stay open. Windows Authentication on and Anonymous off cannot be set in `web.config` (that gives HTTP 500.19); `Setup-IisReportSecurity.ps1` sets them on the site.
 
 ---
 
@@ -555,7 +555,7 @@ PsToDoOnprem\
     ├── Functions\
     │   ├── psToDo\                       (main-script functions, no Graph)
     │   ├── psToDo-HtmlReport\
-    │   └── cloud-plugins\                (Graph helpers for the cloud importers)
+    │   └── cloud-plugins\                (Graph functions for the cloud importers)
     └── plugin\
         ├── Import-ExchangeCertificates-Onprem-v1.0.ps1
         ├── Import-ADAccountExpiry-Onprem-v1.0.ps1

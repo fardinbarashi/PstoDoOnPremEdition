@@ -1,60 +1,22 @@
 ﻿<#
 System requirements
-    PSVersion  5.1 (Desktop) or 7.x (Core)
-    Host       Domain-joined Windows host with network access to the Exchange
-               remote PowerShell endpoint (http://<server>/PowerShell/).
-    Rights     The account running the script needs the Exchange RBAC role
-               "View-Only Configuration" (Get-ExchangeServer, Get-ExchangeCertificate).
+PSVersion : Windows PowerShell 5.1 or PowerShell 7.x
+Rights : Exchange RBAC role "View-Only Configuration"
 
-psToDo plugin : Import-ExchangeCertificates (ON-PREMISES EDITION)
-    Author  : Fardin Barashi
-    Title   : psToDo - on-prem Exchange certificate importer
-    Purpose : Read every certificate installed on every on-prem Exchange server
-              (Get-ExchangeCertificate) via Exchange remote PowerShell and merge
-              their expiry dates into Files\db\monitorobjects.json.
-              On-prem counterpart of the cloud edition's Entra app registration
-              importer: same merge/backup behaviour, different source.
-
-Behaviour
-    1. Connects to the Exchange remote PowerShell endpoint named in
-       Settings\Config\ExchangeOnpremSettings.json (ExchangePowerShellUri) with
-       Kerberos (default) or Basic auth, imports ONLY Get-ExchangeServer and
-       Get-ExchangeCertificate, and reads the certificates on every server.
-       Nothing else on the network is contacted.
-    2. By default self-signed certificates and certificates bound to no
-       service are skipped (they are noise). Change includeSelfSigned /
-       includeServicesNone in exchangecert-defaults.json to keep them.
-    3. Fields Exchange does NOT provide (template, environment, triggers,
-       mail, ...) are taken from Settings\plugin\exchangecert\config\exchangecert-defaults.json.
-       The tokens {{name}}, {{expireDate}}, {{servername}}, {{environment}},
-       {{thumbprint}}, {{subject}} and {{services}} are replaced per object.
-    4. BEFORE writing anything it takes a timestamped backup of
-       monitorobjects.json into Files\backup\psToDo\.
-    5. It MERGES rather than overwrites:
-         - existing manual objects are never touched
-         - objects previously imported by this plugin (matched on
-           exchangeCertKey = "<server>|<thumbprint>") get their expireDate
-           refreshed (unless -NoDateRefresh)
-         - new certificates are appended with a fresh numeric id
-       Imported objects carry the extra fields "source", "exchangeCertKey",
-       "thumbprint", "subject" and "services", so re-runs are idempotent.
-       The psToDo scripts ignore unknown fields, so this is safe.
-
-Switches
-    -UseMockData   Skip Exchange completely and use built-in sample certificates.
-                   Lets you test the backup/merge logic without an Exchange server.
-    -NoDateRefresh Do not update expireDate on already-imported objects.
-    -Server        Only read the named server(s) instead of every Exchange server.
-    -WhatIf        Show what would change without writing (SupportsShouldProcess).
+About Script :
+Author : Fardin Barashi
+Title : psToDo plugin - Exchange certificates
+Description : Imports the certificates on the on-prem Exchange servers into monitorobjects.json.
+Defaults: Settings\plugin\exchangecert\config\exchangecert-defaults.json
+For more information, please visit the GitHub repository: https://github.com/fardinbarashi/psToDo
 
 Examples
-    # Lab test, no Exchange needed:
     .\Import-ExchangeCertificates-Onprem-v1.0.ps1 -UseMockData -WhatIf
-    .\Import-ExchangeCertificates-Onprem-v1.0.ps1 -UseMockData
-
-    # Live against the organisation:
     .\Import-ExchangeCertificates-Onprem-v1.0.ps1
-    .\Import-ExchangeCertificates-Onprem-v1.0.ps1 -Server mail-01.lab.local, mail-02.lab.local
+    .\Import-ExchangeCertificates-Onprem-v1.0.ps1 -Server mail-01.lab.local
+
+Version : 1.0-onprem
+Release day : 2026-09-08
 #>
 
 [CmdletBinding(SupportsShouldProcess)]
@@ -64,18 +26,11 @@ param(
     [string[]] $Server
 )
 
-# Resolve the folder this script lives in. $PSScriptRoot is empty when the code is
-# run with F8 / "Run Selection" in ISE or VS Code, or pasted into a console, which
-# turns every path into "\Files\..." on the current drive. Fall back to the script
-# path, then to the current folder.
 $scriptRoot = if ($PSScriptRoot) { $PSScriptRoot }
               elseif ($MyInvocation.MyCommand.Path) { Split-Path -Parent $MyInvocation.MyCommand.Path }
               else { (Get-Location).Path }
 
-# Windows PowerShell 5.1: its built-in type data for System.Array makes ConvertTo-Json
-# write arrays as {"value":[...],"Count":n}. Removing it gives plain JSON arrays, like PS 7.
 Remove-TypeData -TypeName System.Array -ErrorAction SilentlyContinue
-
 
 $ErrorActionPreference = 'Stop'
 
@@ -94,9 +49,8 @@ $functionFolder        = Join-Path $repoRoot 'Settings\Functions\psToDo'
 
 $expireDateFormat = 'yyyy-MM-dd'
 
-#------------------------------- Helpers -----------------------------
+#------------------------------- Functions -----------------------------
 
-# Replace {{token}} placeholders in any string using a lookup table.
 function Expand-Tokens {
     param(
         [string] $Text,
@@ -109,11 +63,10 @@ function Expand-Tokens {
     return $Text
 }
 
-# Build one ordered monitored object from the defaults template + one Exchange certificate.
 function New-MonitorObjectFromCertificate {
     param(
         [Parameter(Mandatory)] $Defaults,
-        [Parameter(Mandatory)] $Certificate,   # PSCustomObject: Name, ExpireDate, ServerName, Key, Thumbprint, Subject, Services
+        [Parameter(Mandatory)] $Certificate,
         [Parameter(Mandatory)] [int] $Id,
         [string] $Environment
     )
@@ -168,7 +121,6 @@ function New-MonitorObjectFromCertificate {
     }
 }
 
-# Flatten raw Get-ExchangeCertificate output (already tagged with ServerFqdn) into a list to monitor.
 function Get-CertificateList {
     param(
         [Parameter(Mandatory)] $RawCertificates,
@@ -203,7 +155,6 @@ function Get-CertificateList {
     return $list
 }
 
-# Built-in sample data so the merge/backup logic can be tested without an Exchange server.
 function Get-MockCertificates {
     [pscustomobject]@{ ServerFqdn = 'mail-01.lab.local'; Thumbprint = 'A1B2C3D4E5F60718293A4B5C6D7E8F9012345678'; FriendlyName = 'mail.lab.local (SAN)'; Subject = 'CN=mail.lab.local, O=Lab'; NotAfter = (Get-Date).AddDays(45);  Services = 'IMAP, POP, IIS, SMTP'; IsSelfSigned = $false }
     [pscustomobject]@{ ServerFqdn = 'mail-01.lab.local'; Thumbprint = 'FFEEDDCCBBAA99887766554433221100FFEEDDCC'; FriendlyName = 'Microsoft Exchange Server Auth Certificate'; Subject = 'CN=Microsoft Exchange Server Auth Certificate'; NotAfter = (Get-Date).AddDays(400); Services = 'SMTP'; IsSelfSigned = $true }
@@ -263,7 +214,6 @@ if ($UseMockData) {
 
     try {
         $exSession = New-PSSession @sessionArgs
-        # Import only the two cmdlets we need. -DisableNameChecking silences the unapproved-verb noise.
         Import-PSSession -Session $exSession -CommandName Get-ExchangeServer, Get-ExchangeCertificate -AllowClobber -DisableNameChecking | Out-Null
 
         $servers = @(Get-ExchangeServer | Where-Object { $_.ServerRole -notmatch 'Edge' })
@@ -308,7 +258,6 @@ Write-Host "- Certificates to monitor : $($certificates.Count) (of $(@($rawCerts
 
 #------------------------------- Merge -------------------------------
 
-# Index existing imported objects by their exchangeCertKey.
 $existingByKey = @{}
 foreach ($obj in $existing) {
     if ($obj.PSObject.Properties.Name -contains 'exchangeCertKey' -and $obj.exchangeCertKey) {
@@ -316,7 +265,6 @@ foreach ($obj in $existing) {
     }
 }
 
-# Next free numeric id (ids in the file are numeric strings).
 $maxId = 0
 foreach ($obj in $existing) {
     $n = 0
@@ -324,7 +272,7 @@ foreach ($obj in $existing) {
 }
 
 $result = [System.Collections.Generic.List[object]]::new()
-foreach ($obj in $existing) { $result.Add($obj) }   # keep every existing object, order preserved
+foreach ($obj in $existing) { $result.Add($obj) }
 
 $added = 0; $updated = 0
 foreach ($cert in $certificates) {
@@ -366,7 +314,6 @@ if ($PSCmdlet.ShouldProcess($monitoringObjectsPath, "Backup and write $($result.
     $dbDir = Split-Path $monitoringObjectsPath -Parent
     if ($dbDir -and -not (Test-Path $dbDir)) { New-Item -ItemType Directory -Path $dbDir -Force | Out-Null }
 
-    # -InputObject @(...) instead of -AsArray (PS 7 only): a JSON array on both 5.1 and 7.
     $json = ConvertTo-Json -InputObject @($result) -Depth 20
     Set-Content -Path $monitoringObjectsPath -Value $json -Encoding UTF8
     Write-Host "- Wrote $($result.Count) objects to $monitoringObjectsPath" -ForegroundColor Green

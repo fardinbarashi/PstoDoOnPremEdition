@@ -1,13 +1,5 @@
 ﻿function Send-AlertNotification {
-    <#
-        On-prem edition: mail is the only channel. Teams (a cloud webhook) is
-        intentionally not implemented so that the script never talks to
-        anything but the on-prem Exchange server.
-
-        notifyMethodbyTeams is still read from monitorobjects.json for file
-        compatibility with the cloud edition, but an object that ONLY has
-        Teams enabled is reported as skipped.
-    #>
+    # On-prem edition: mail is the only channel.
     [CmdletBinding(SupportsShouldProcess)]
     param([Parameter(Mandatory)] $Alert)
 
@@ -18,7 +10,7 @@
         Urgency   = $Alert.urgency
         StateKey  = $Alert.stateKey
         MailSent  = $false
-        TeamsSent = $false   # always false in the on-prem edition
+        TeamsSent = $false
         Skipped   = $false
     }
 

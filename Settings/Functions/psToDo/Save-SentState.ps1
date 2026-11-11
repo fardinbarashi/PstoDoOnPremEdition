@@ -1,8 +1,4 @@
 ﻿function Save-SentState {
-    <#
-        Drops keys for objects that no longer exist, and for expireDate values
-        that have changed - a renewed certificate re-arms all of its windows.
-    #>
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)] [hashtable] $State,
@@ -10,7 +6,6 @@
         [Parameter(Mandatory)] [string[]]  $LiveKeyPrefixes
     )
 
-    # @() around .Keys: removing from a hashtable while enumerating it throws
     foreach ($key in @($State.Keys)) {
         $prefix = ($key -split '_')[0..1] -join '_'
         if ($prefix -notin $LiveKeyPrefixes) {
@@ -19,7 +14,6 @@
         }
     }
 
-    # Make sure the state folder exists (first run creates Files\state).
     $dir = Split-Path $Path -Parent
     if ($dir -and -not (Test-Path $dir)) { New-Item -ItemType Directory -Path $dir -Force | Out-Null }
 

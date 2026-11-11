@@ -1,14 +1,4 @@
 ﻿function Send-AlertMail {
-    <#
-        On-prem edition: submits the alert to the on-prem Exchange server over
-        SMTP using the client prepared by Connect-OnpremExchangeSmtp.
-
-        The sender (mailSender in monitorobjects.json) must be an address the
-        connector/account is allowed to send as:
-          - Anonymous relay connector : any address in an accepted domain
-          - CurrentUser / Credential  : the account's own primary SMTP address,
-                                        or a mailbox it has Send-As on.
-    #>
     [CmdletBinding(SupportsShouldProcess)]
     param(
         [Parameter(Mandatory)] $Alert
@@ -61,7 +51,6 @@
         return $true
     }
     catch {
-        # SmtpException carries the Exchange reply (e.g. "5.7.1 Client does not have permissions to send as this sender")
         $detail = $_.Exception.Message
         if ($_.Exception.InnerException) { $detail += ' / ' + $_.Exception.InnerException.Message }
         Write-Warning "  Mail to $($recipients -join ', ') failed: $detail"

@@ -1,10 +1,4 @@
 ﻿function Format-AlertMailBody {
-    <#
-        Tables and inline styles only: Outlook for Windows renders HTML with the
-        Word engine and ignores flexbox and grid.
-        Every value from the JSON goes through HtmlEncode - a stray & or < in a
-        description would otherwise break the layout.
-    #>
     [CmdletBinding()]
     param([Parameter(Mandatory)] $Alert)
 

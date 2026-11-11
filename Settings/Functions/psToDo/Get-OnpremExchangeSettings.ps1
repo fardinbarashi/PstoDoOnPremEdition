@@ -1,11 +1,4 @@
 ﻿function Get-OnpremExchangeSettings {
-    <#
-        Reads Settings\Config\ExchangeOnpremSettings.json, validates it and
-        resolves relative paths (credential files) against the repo root.
-
-        Returns a PSCustomObject with the effective settings. Nothing is
-        contacted here - this is pure parsing/validation.
-    #>
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)] [string] $Path,

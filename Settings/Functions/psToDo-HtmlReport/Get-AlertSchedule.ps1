@@ -1,29 +1,8 @@
 ﻿function Get-AlertSchedule {
-<#
-    Works out, for ONE object, what the alert script (psToDo-Onprem) has sent and
-    will send - using exactly the same rules and the same keys in sent-state.json.
-
-    Rules of the alert script, run once a day:
-      daysLeft = 0          -> "expiry day" alert          key <id>_<expireDate>_expiryday
-      daysLeft < 0          -> reminder every N days        key <id>_<expireDate>_expired-<yyyy-MM-dd>
-                               (when -daysLeft is a multiple of N, N = $ExpiredNotifyDays)
-      0 < daysLeft <= t     -> the SMALLEST trigger t that still covers daysLeft
-                               key <id>_<expireDate>_<t>
-    So window t is in effect while daysLeft is in (previous smaller trigger, t].
-    A trigger of 0 never fires on its own: day 0 is the expiry day.
-
-    Every window gets a state:
-      sent     - its key is in sent-state.json (sentAt = when)
-      due      - the window is open now and has not been sent: the next run sends it
-      pending  - opens later (date = the day it opens)
-      skipped  - it closed without being sent (object added late, or the job was not running)
-
-    Returns @{ Schedule; Last; Next } with dates as yyyy-MM-dd strings and times as ISO 8601.
-#>
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)] [string]   $Id,
-        [Parameter(Mandatory)] [string]   $ExpireText,      # the raw expireDate string - part of the state key
+        [Parameter(Mandatory)] [string]   $ExpireText,
         [Parameter(Mandatory)] [datetime] $ExpireDate,
         [Parameter(Mandatory)] [AllowEmptyCollection()] [int[]] $Triggers,   # ascending, unique
         [Parameter(Mandatory)] [datetime] $Today,

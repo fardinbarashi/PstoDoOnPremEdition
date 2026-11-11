@@ -1,55 +1,19 @@
 ﻿<#
 System requirements
-    PSVersion  7.3.1 (Core) or later
-    PSEdition  Core
+PSVersion : PowerShell 7.3.1 or later
 
-psToDo plugin : Import-EntraAppRegistrations
-    Author  : Fardin Barashi
-    Title   : psToDo - Entra ID app registration importer
-    Purpose : Read app registration credentials (client secrets + certificates)
-              from Entra ID via Microsoft Graph and merge their expiry dates
-              into Files\db\monitorobjects.json.
-
-Behaviour
-    1. Reads every app registration in the tenant and expands each
-       passwordCredential (client secret) and keyCredential (certificate)
-       into one monitored object.
-    2. Fields Entra does NOT provide (template, environment, description,
-       triggers, mail, teams, ...) are taken from
-       Settings\plugin\entra\config\entra-app-defaults.json. The tokens {{name}},
-       {{expireDate}}, {{servername}} and {{environment}} are replaced per
-       object.
-    3. BEFORE writing anything it takes a timestamped backup of
-       monitorobjects.json into Files\backup\psToDo\.
-    4. It MERGES rather than overwrites:
-         - existing manual objects are never touched
-         - objects previously imported from Entra (matched on entraKeyId) get
-           their expireDate refreshed (unless -NoDateRefresh)
-         - brand-new credentials are appended with a fresh numeric id
-       Imported objects carry two extra fields, "source" and "entraKeyId",
-       so re-runs are idempotent. The existing psToDo scripts ignore unknown
-       fields, so this is safe.
-
-Graph permissions
-    Application permission : Application.Read.All  (grant admin consent)
-    Certificate auth is reused from the rest of psToDo (MsGraphSettings.json +
-    Connect-CalenderReminderGraph). Note: this is a different scope than the
-    Mail.Send used by the main script, so add Application.Read.All to the same
-    app registration (or a dedicated one) before running.
-
-Switches
-    -UseMockData   Skip Graph completely and use built-in sample credentials.
-                   Lets you test the backup/merge logic in a lab with no tenant.
-    -NoDateRefresh Do not update expireDate on already-imported objects.
-    -WhatIf        Show what would change without writing (SupportsShouldProcess).
+About Script :
+Author : Fardin Barashi
+Title : psToDo plugin - Entra ID app registrations
+Description : Imports client secret and certificate expiry dates of the app registrations into monitorobjects.json (app-only auth).
+For more information, please visit the GitHub repository: https://github.com/fardinbarashi/psToDo
 
 Examples
-    # Lab test, no tenant needed:
-    .\Import-EntraAppRegistrations-v1.1.ps1 -UseMockData -WhatIf
-    .\Import-EntraAppRegistrations-v1.1.ps1 -UseMockData
+    .\Import-EntraAppRegistrations-v1.3.ps1 -UseMockData -WhatIf
+    .\Import-EntraAppRegistrations-v1.3.ps1
 
-    # Live against the tenant:
-    .\Import-EntraAppRegistrations-v1.1.ps1
+Version : 1.3
+Release day : 2026-09-08
 #>
 
 [CmdletBinding(SupportsShouldProcess)]
@@ -58,18 +22,11 @@ param(
     [switch] $NoDateRefresh
 )
 
-# Resolve the folder this script lives in. $PSScriptRoot is empty when the code is
-# run with F8 / "Run Selection" in ISE or VS Code, or pasted into a console, which
-# turns every path into "\Files\..." on the current drive. Fall back to the script
-# path, then to the current folder.
 $scriptRoot = if ($PSScriptRoot) { $PSScriptRoot }
               elseif ($MyInvocation.MyCommand.Path) { Split-Path -Parent $MyInvocation.MyCommand.Path }
               else { (Get-Location).Path }
 
-# Windows PowerShell 5.1: its built-in type data for System.Array makes ConvertTo-Json
-# write arrays as {"value":[...],"Count":n}. Removing it gives plain JSON arrays, like PS 7.
 Remove-TypeData -TypeName System.Array -ErrorAction SilentlyContinue
-
 
 $ErrorActionPreference = 'Stop'
 
@@ -90,7 +47,6 @@ $expireDateFormat = 'yyyy-MM-dd'
 
 #------------------------------- Function -----------------------------
 
-# Replace {{token}} placeholders in any string using a lookup table.
 function Expand-Tokens {
     param(
         [string] $Text,
@@ -103,17 +59,14 @@ function Expand-Tokens {
     return $Text
 }
 
-# Build one ordered monitored object from the defaults template + one Entra credential.
 function New-MonitorObjectFromCredential {
     param(
         [Parameter(Mandatory)] $Defaults,
-        [Parameter(Mandatory)] $Credential,   # PSCustomObject: Name, ExpireDate, ServerName, KeyId
+        [Parameter(Mandatory)] $Credential,
         [Parameter(Mandatory)] [int] $Id,
-        [string] $Environment                 # "Entra - <tenant name> - <tenant id>"; falls back to the default
+        [string] $Environment
     )
 
-    # An app with no secrets and no certificates has nothing that expires.
-    # It is still listed (as an inventory row) but never alerts.
     $isEmpty = [bool]$Credential.NoCredentials
     $expire  = if ($isEmpty) { '' } else { ([datetime]$Credential.ExpireDate).ToString($expireDateFormat) }
     $env     = if ([string]::IsNullOrWhiteSpace($Environment)) { $Defaults.environment } else { $Environment }
@@ -161,7 +114,6 @@ function New-MonitorObjectFromCredential {
     }
 }
 
-# Flatten Entra applications into a flat list of credentials to monitor.
 function Get-CredentialListFromApps {
     param([Parameter(Mandatory)] $Apps)
 
@@ -198,7 +150,6 @@ function Get-CredentialListFromApps {
             $added++
         }
 
-        # No secret and no certificate: still list the app (inventory row), keyed by appId.
         if ($added -eq 0) {
             $list.Add([pscustomobject]@{
                 Name       = "$appName - (no credentials)"
@@ -213,7 +164,6 @@ function Get-CredentialListFromApps {
     return $list
 }
 
-# Built-in sample data so the merge/backup logic can be tested without a tenant.
 function Get-MockApps {
     [pscustomobject]@{
         DisplayName = 'psToDo-Graph-Connector'
@@ -293,7 +243,6 @@ if ($UseMockData) {
     Write-Host '- Reading app registrations from Entra ID...' -ForegroundColor DarkGray
     $apps = Get-MgApplication -All -Property 'id,appId,displayName,passwordCredentials,keyCredentials'
 
-    # Tenant name + id for the environment field ("Entra - <name> - <id>").
     $org = Get-MgOrganization -ErrorAction SilentlyContinue | Select-Object -First 1
     $tenantId   = if ($org -and $org.Id)          { $org.Id }          else { (Get-MgContext).TenantId }
     $tenantName = if ($org -and $org.DisplayName) { $org.DisplayName } else { $tenantId }
@@ -308,7 +257,6 @@ Write-Host "- Credentials with an expiry date found : $($credentials.Count)" -Fo
 
 #------------------------------- Merge -------------------------------
 
-# Index existing Entra-imported objects by their entraKeyId.
 $existingByKeyId = @{}
 foreach ($obj in $existing) {
     if ($obj.PSObject.Properties.Name -contains 'entraKeyId' -and $obj.entraKeyId) {
@@ -316,7 +264,6 @@ foreach ($obj in $existing) {
     }
 }
 
-# Next free numeric id (ids in the file are numeric strings).
 $maxId = 0
 foreach ($obj in $existing) {
     $n = 0
@@ -324,13 +271,12 @@ foreach ($obj in $existing) {
 }
 
 $result  = [System.Collections.Generic.List[object]]::new()
-foreach ($obj in $existing) { $result.Add($obj) }   # keep every existing object, order preserved
+foreach ($obj in $existing) { $result.Add($obj) }
 
 $added = 0; $updated = 0
 foreach ($cred in $credentials) {
     if ($existingByKeyId.ContainsKey($cred.KeyId)) {
         $target = $existingByKeyId[$cred.KeyId]
-        # Apps with no credentials have no expiry date - nothing to refresh (would throw on [datetime]$null).
         if ($cred.NoCredentials -or $null -eq $cred.ExpireDate) { continue }
         $newExpire = ([datetime]$cred.ExpireDate).ToString($expireDateFormat)
         if (-not $NoDateRefresh -and [string]$target.expireDate -ne $newExpire) {

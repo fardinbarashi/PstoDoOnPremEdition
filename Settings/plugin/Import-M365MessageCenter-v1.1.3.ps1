@@ -1,52 +1,19 @@
 ﻿<#
 System requirements
-    PSVersion  7.3.1 (Core) or later
-    PSEdition  Core
+PSVersion : PowerShell 7.3.1 or later
 
-psToDo plugin : Import-M365MessageCenter
-    Author  : Fardin Barashi
-    Title   : psToDo - Microsoft 365 Message Center importer
-    Purpose : Read Microsoft 365 Message Center advisories from the tenant via
-              Microsoft Graph and merge the ones that carry a deadline into
-              Files\db\monitorobjects.json.
-
-Behaviour
-    1. Reads every service announcement message (serviceAnnouncement/messages)
-       and keeps only those that have an actionRequiredByDateTime - i.e. a real
-       deadline. That date becomes the object's expireDate. No service or
-       severity filter is applied.
-    2. Fields the Message Center does NOT provide (template, environment,
-       triggers, mail, teams, ...) are taken from
-       Settings\plugin\messagecenter\config\messagecenter-defaults.json. The tokens {{name}},
-       {{expireDate}}, {{servername}}, {{environment}}, {{messageId}},
-       {{category}} and {{severity}} are replaced per object.
-    3. BEFORE writing anything it takes a timestamped backup of
-       monitorobjects.json into Files\backup\psToDo\.
-    4. It MERGES rather than overwrites:
-         - existing manual objects are never touched
-         - objects previously imported from the Message Center (matched on
-           messageId) get their expireDate refreshed (unless -NoDateRefresh)
-         - brand-new advisories are appended with a fresh numeric id
-       Imported objects carry two extra fields, "source" and "messageId",
-       so re-runs are idempotent. The existing psToDo scripts ignore unknown
-       fields, so this is safe.
-
-Graph permissions
-    Application permission : ServiceMessage.Read.All  (grant admin consent)
-    Certificate auth is reused from the rest of psToDo (MsGraphSettings.json +
-    Connect-CalenderReminderGraph). Add ServiceMessage.Read.All to the same app
-    registration (or a dedicated one) before running.
-
-Switches
-    -UseMockData   Skip Graph completely and use built-in sample advisories, so
-                   you can test the backup/merge logic without a tenant.
-    -NoDateRefresh Do not update expireDate on already-imported objects.
-    -WhatIf        Show what would change without writing (SupportsShouldProcess).
+About Script :
+Author : Fardin Barashi
+Title : psToDo plugin - Microsoft 365 Message Center
+Description : Imports Message Center posts with an action-required date into monitorobjects.json (app-only auth).
+For more information, please visit the GitHub repository: https://github.com/fardinbarashi/psToDo
 
 Examples
-    .\Import-M365MessageCenter-v1.1.ps1 -UseMockData -WhatIf
-    .\Import-M365MessageCenter-v1.1.ps1 -UseMockData
-    .\Import-M365MessageCenter-v1.1.ps1
+    .\Import-M365MessageCenter-v1.1.3.ps1 -UseMockData -WhatIf
+    .\Import-M365MessageCenter-v1.1.3.ps1
+
+Version : 1.1.3
+Release day : 2026-09-08
 #>
 
 [CmdletBinding(SupportsShouldProcess)]
@@ -55,18 +22,11 @@ param(
     [switch] $NoDateRefresh
 )
 
-# Resolve the folder this script lives in. $PSScriptRoot is empty when the code is
-# run with F8 / "Run Selection" in ISE or VS Code, or pasted into a console, which
-# turns every path into "\Files\..." on the current drive. Fall back to the script
-# path, then to the current folder.
 $scriptRoot = if ($PSScriptRoot) { $PSScriptRoot }
               elseif ($MyInvocation.MyCommand.Path) { Split-Path -Parent $MyInvocation.MyCommand.Path }
               else { (Get-Location).Path }
 
-# Windows PowerShell 5.1: its built-in type data for System.Array makes ConvertTo-Json
-# write arrays as {"value":[...],"Count":n}. Removing it gives plain JSON arrays, like PS 7.
 Remove-TypeData -TypeName System.Array -ErrorAction SilentlyContinue
-
 
 $ErrorActionPreference = 'Stop'
 
@@ -87,7 +47,6 @@ $expireDateFormat = 'yyyy-MM-dd'
 
 #------------------------------- Function -----------------------------
 
-# Replace {{token}} placeholders in any string using a lookup table.
 function Expand-Tokens {
     param(
         [string] $Text,
@@ -100,11 +59,10 @@ function Expand-Tokens {
     return $Text
 }
 
-# Build one ordered monitored object from the defaults template + one advisory.
 function New-MonitorObjectFromMessage {
     param(
         [Parameter(Mandatory)] $Defaults,
-        [Parameter(Mandatory)] $Message,   # PSCustomObject: Name, ExpireDate, ServerName, MessageId, Category, Severity
+        [Parameter(Mandatory)] $Message,
         [Parameter(Mandatory)] [int] $Id
     )
 
@@ -156,8 +114,6 @@ function New-MonitorObjectFromMessage {
     }
 }
 
-# Flatten service announcement messages into the flat list we monitor.
-# Only messages that carry an actionRequiredByDateTime (a real deadline) are kept.
 function Get-MessageListFromServiceAnnouncement {
     param([Parameter(Mandatory)] $Messages)
 
@@ -181,7 +137,6 @@ function Get-MessageListFromServiceAnnouncement {
     return $list
 }
 
-# Built-in sample advisories so the merge/backup logic can be tested with no tenant.
 function Get-MockMessages {
     [pscustomobject]@{
         Id = 'MC100001'; Title = 'Retirement: Legacy connector is being removed'
@@ -256,7 +211,6 @@ Write-Host "- Advisories with a deadline (actionRequiredBy) : $($advisories.Coun
 
 #------------------------------- Merge -------------------------------
 
-# Index existing Message Center objects by their messageId.
 $existingByMessageId = @{}
 foreach ($obj in $existing) {
     if ($obj.PSObject.Properties.Name -contains 'messageId' -and $obj.messageId) {
@@ -264,7 +218,6 @@ foreach ($obj in $existing) {
     }
 }
 
-# Next free numeric id (ids in the file are numeric strings).
 $maxId = 0
 foreach ($obj in $existing) {
     $n = 0
@@ -272,7 +225,7 @@ foreach ($obj in $existing) {
 }
 
 $result = [System.Collections.Generic.List[object]]::new()
-foreach ($obj in $existing) { $result.Add($obj) }   # keep every existing object, order preserved
+foreach ($obj in $existing) { $result.Add($obj) }
 
 $added = 0; $updated = 0
 foreach ($adv in $advisories) {
