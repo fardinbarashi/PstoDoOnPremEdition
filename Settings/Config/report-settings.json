@@ -1,0 +1,16 @@
+{
+    "_help": {
+        "OrganizationName": "Shown in the dashboard header, e.g. 'Contoso IT'. Empty = no name.",
+        "LogoPath": "PNG, JPG, GIF or SVG, under 512 KB. Relative to the psToDo folder or absolute, e.g. 'img\\company-logo.png'. It is embedded in the page. Empty = no logo.",
+        "Language": "en or sv. Dates and numbers follow the same language.",
+        "StaleAfterHours": "The page warns when it is older than this: the scheduled report run has probably stopped.",
+        "TimelineDays": "How many days ahead the expiry timeline covers.",
+        "ExpiredNotifyDays": "Must match $expiredNotifyDays in psToDo-Onprem-v1.0.ps1 (reminders after expiry)."
+    },
+    "OrganizationName": "",
+    "LogoPath": "",
+    "Language": "en",
+    "StaleAfterHours": 24,
+    "TimelineDays": 90,
+    "ExpiredNotifyDays": 7
+}
