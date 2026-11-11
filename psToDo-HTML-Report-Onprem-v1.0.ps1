@@ -11,9 +11,9 @@ For more information, please visit the GitHub repository: https://github.com/far
 
 Examples
     .\psToDo-HTML-Report-Onprem-v1.0.ps1
-    .\psToDo-HTML-Report-Onprem-v1.0.ps1 -Language sv -OrganizationName 'Contoso IT'
+    .\psToDo-HTML-Report-Onprem-v1.0.ps1 -OrganizationName 'Contoso IT'
 
-Version : 1.1-onprem
+Version : 1.2-onprem
 Release day : 2026-11-06
 #>
 
@@ -117,14 +117,12 @@ try {
         if ($rs -and $rs.PSObject.Properties.Name -contains $name -and "$($rs.$name)" -ne '') { return $rs.$name }
         return $default
     }
-    if ([string]::IsNullOrWhiteSpace($Language))         { $Language         = [string](Get-Setting 'Language' 'en') }
     if ([string]::IsNullOrWhiteSpace($OrganizationName)) { $OrganizationName = [string](Get-Setting 'OrganizationName' '') }
     if ([string]::IsNullOrWhiteSpace($LogoPath))         { $LogoPath         = [string](Get-Setting 'LogoPath' '') }
     $staleHours        = [int](Get-Setting 'StaleAfterHours' 24)
     $timelineDays      = [int](Get-Setting 'TimelineDays' 90)
     $expiredNotifyDays = [int](Get-Setting 'ExpiredNotifyDays' 7)
-    $Language = $Language.Trim().ToLowerInvariant()
-    if ($Language -notin 'en', 'sv') { Write-Warning "Language '$Language' is not supported (en, sv) - using en."; $Language = 'en' }
+    if (-not [string]::IsNullOrWhiteSpace($Language)) { Write-Host '- The -Language parameter is no longer used: the dashboard is in English.' -ForegroundColor DarkGray }
 
     # --- logo, embedded so the page needs no other file
     $logo = ''
@@ -223,33 +221,59 @@ try {
     $noCreds       = [System.Collections.Generic.List[object]]::new()
     $placeholder   = 0
 
+    function Format-SentTime {
+        param($Value)
+        if ([string]::IsNullOrWhiteSpace($Value)) { return '' }
+        $t = [datetime]::MinValue
+        if ([datetime]::TryParse("$Value", [cultureinfo]::InvariantCulture, [System.Globalization.DateTimeStyles]::RoundtripKind, [ref] $t)) {
+            return $t.ToLocalTime().ToString('yyyy-MM-dd HH:mm')
+        }
+        return "$Value"
+    }
+
+    function Get-WindowLabel {
+        param($Kind, $Trigger)
+        if ($Kind -eq 'window') { return "$Trigger-day window" }
+        if ($Kind -eq 'expiry') { return 'Expiry day' }
+        return 'Expired reminder'
+    }
+
     function New-ReportRow {
         param($Object, [switch] $Completed)
 
+        $mailOn = [bool](Test-NotifyFlag $Object.notifyMethodbyMail)
         $base = [ordered]@{
-            id         = "$($Object.id)"
-            name       = "$($Object.name)"
-            owner      = "$($Object.owner)"
-            status     = $(if ([string]::IsNullOrWhiteSpace($Object.status)) { $(if ($Completed) { 'Completed' } else { 'Backlog' }) } else { "$($Object.status)" })
-            template   = "$($Object.template)"
-            server     = "$($Object.servername)"
-            env        = "$($Object.environment)"
-            desc       = "$($Object.description)"
-            source     = "$($Object.source)"
-            severity   = "$($Object.severity)"
-            link       = "$($Object.messageLink)"
-            copied     = "$($Object.copiedDate)"
-            expire     = ''
-            days       = $null
-            triggers   = @()
-            urgency    = 'none'
-            mailOn     = [bool](Test-NotifyFlag $Object.notifyMethodbyMail)
-            sender     = "$($Object.mail.mailSender)"
-            recipients = @(@($Object.mail.mailRecipients) | Where-Object { -not [string]::IsNullOrWhiteSpace($_) } | ForEach-Object { "$_" })
-            subject    = "$($Object.mail.mailSubject)"
-            schedule   = @()
-            last       = $null
-            next       = $null
+            id               = "$($Object.id)"
+            name             = "$($Object.name)"
+            owner            = "$($Object.owner)"
+            status           = $(if ([string]::IsNullOrWhiteSpace($Object.status)) { $(if ($Completed) { 'Completed' } else { 'Backlog' }) } else { "$($Object.status)" })
+            template         = "$($Object.template)"
+            servername       = "$($Object.servername)"
+            environment      = "$($Object.environment)"
+            action           = "$($Object.description)"
+            source           = "$($Object.source)"
+            severity         = "$($Object.severity)"
+            appId            = "$($Object.appId)"
+            messageId        = "$($Object.messageId)"
+            messageLink      = "$($Object.messageLink)"
+            copiedDate       = "$($Object.copiedDate)"
+            expireDate       = "$($Object.expireDate)"
+            daysLeft         = $null
+            allTriggers      = @()
+            urgency          = 'none'
+            mailOn           = $mailOn
+            teamsOn          = $false
+            mailSender       = "$($Object.mail.mailSender)"
+            mailRecipients   = @(@($Object.mail.mailRecipients) | Where-Object { -not [string]::IsNullOrWhiteSpace($_) } | ForEach-Object { "$_" })
+            mailSubject      = "$($Object.mail.mailSubject)"
+            mailBody         = "$($Object.mail.mailBody)"
+            windows          = @()
+            nextAlertDate    = $null
+            nextAlertDue     = $false
+            nextAlertLabel   = ''
+            nextAlertChannel = ''
+            lastAlerted      = ''
+            lastAlertedLabel = ''
         }
 
         if ([string]::IsNullOrWhiteSpace($Object.expireDate)) { return $base }
@@ -259,18 +283,69 @@ try {
         $rawTriggers = foreach ($key in $TriggerKeys) { $Object.$key }
         [int[]] $triggers = @($rawTriggers | Where-Object { -not [string]::IsNullOrWhiteSpace($_) } | ForEach-Object { [int]$_ } | Sort-Object -Unique)
 
-        $base.expire = $expireDate.ToString('yyyy-MM-dd')
-        $base.days   = ($expireDate - $today).Days
+        $base.expireDate = $expireDate.ToString('yyyy-MM-dd')
+        $base.daysLeft   = ($expireDate - $today).Days
         if (-not $triggers) { return $base }
 
-        $base.triggers = @($triggers)
-        $base.urgency  = Get-Urgency -DaysLeft $base.days -Triggers $triggers
+        $base.allTriggers = @($triggers)
+        $base.urgency     = Get-Urgency -DaysLeft $base.daysLeft -Triggers $triggers
 
         $plan = Get-AlertSchedule -Id "$($Object.id)" -ExpireText "$($Object.expireDate)" -ExpireDate $expireDate `
                                   -Triggers $triggers -Today $today -State $state -ExpiredNotifyDays $expiredNotifyDays
-        $base.schedule = @($plan.Schedule)
-        $base.last     = $plan.Last
-        $base.next     = $plan.Next
+
+        $statusOf = {
+            param($item)
+            if ($item.state -eq 'sent')    { return 'sent' }
+            if ($item.state -eq 'pending') { return 'upcoming' }
+            if ($item.state -eq 'due')     { if ($mailOn) { return 'due' } else { return 'nochannel' } }
+            return 'missed'
+        }
+        $effective = @($triggers | Where-Object { $_ -gt 0 })
+        $windows = [System.Collections.Generic.List[object]]::new()
+        foreach ($item in @($plan.Schedule | Where-Object { $_.kind -ne 'reminder' })) {
+            $level = ''
+            if ($item.kind -eq 'window') {
+                $index = [array]::IndexOf($effective, [int]$item.trigger)
+                $level = if ($index -eq 0) { 'critical' } elseif ($index -eq 1) { 'warning' } else { 'ok' }
+            }
+            $windows.Add([ordered]@{
+                kind    = $item.kind
+                trigger = $item.trigger
+                label   = (Get-WindowLabel $item.kind $item.trigger)
+                level   = $level
+                opens   = $item.date
+                closes  = "$($item.closes)"
+                status  = (& $statusOf $item)
+                sentAt  = (Format-SentTime $item.sentAt)
+            })
+        }
+        $reminders = @($plan.Schedule | Where-Object { $_.kind -eq 'reminder' })
+        $nextReminder = $reminders | Where-Object { $_.state -ne 'sent' } | Select-Object -Last 1
+        $lastReminder = $reminders | Where-Object { $_.state -eq 'sent' } | Select-Object -Last 1
+        if ($nextReminder) {
+            $windows.Add([ordered]@{
+                kind    = 'reminder'
+                trigger = $null
+                label   = 'Expired reminder'
+                level   = ''
+                opens   = $nextReminder.date
+                closes  = ''
+                status  = (& $statusOf $nextReminder)
+                sentAt  = $(if ($lastReminder) { Format-SentTime $lastReminder.sentAt } else { '' })
+            })
+        }
+        $base.windows = @($windows)
+
+        if ($plan.Last) {
+            $base.lastAlerted      = Format-SentTime $plan.Last.at
+            $base.lastAlertedLabel = Get-WindowLabel $plan.Last.kind $plan.Last.trigger
+        }
+        if ($plan.Next -and $mailOn -and -not $Completed) {
+            $base.nextAlertDate    = $plan.Next.date
+            $base.nextAlertDue     = ($plan.Next.state -eq 'due')
+            $base.nextAlertLabel   = Get-WindowLabel $plan.Next.kind $plan.Next.trigger
+            $base.nextAlertChannel = 'Mail'
+        }
         return $base
     }
 
@@ -279,22 +354,22 @@ try {
 
         if ($object.noCredentials -eq $true -or ($object.source -eq 'EntraAppReg' -and [string]::IsNullOrWhiteSpace($object.expireDate))) {
             $noCreds.Add([ordered]@{
-                id = "$($object.id)"; name = "$($object.name)"; owner = "$($object.owner)"; server = "$($object.servername)"
-                env = "$($object.environment)"; status = $(if ([string]::IsNullOrWhiteSpace($object.status)) { 'Backlog' } else { "$($object.status)" })
-                desc = "$($object.description)"; source = "$($object.source)"
+                id = "$($object.id)"; name = "$($object.name)"; servername = "$($object.servername)"
+                environment = "$($object.environment)"; status = $(if ([string]::IsNullOrWhiteSpace($object.status)) { 'Backlog' } else { "$($object.status)" })
+                template = "$($object.template)"; description = "$($object.description)"
             })
             continue
         }
 
         if ([string]::IsNullOrWhiteSpace($object.expireDate)) {
             Write-Warning "$label is missing expireDate - not monitored."
-            $invalid.Add([ordered]@{ id = "$($object.id)"; name = "$($object.name)"; owner = "$($object.owner)"; reason = 'missing-date'; value = '' })
+            $invalid.Add([ordered]@{ id = "$($object.id)"; name = "$($object.name)"; reason = 'expireDate is missing' })
             continue
         }
         $parsed = [datetime]::MinValue
         if (-not [datetime]::TryParseExact("$($object.expireDate)", $DateFormat, [cultureinfo]::InvariantCulture, [System.Globalization.DateTimeStyles]::None, [ref] $parsed)) {
             Write-Warning "$label has an invalid expireDate: '$($object.expireDate)' (expected $DateFormat) - not monitored."
-            $invalid.Add([ordered]@{ id = "$($object.id)"; name = "$($object.name)"; owner = "$($object.owner)"; reason = 'bad-date'; value = "$($object.expireDate)" })
+            $invalid.Add([ordered]@{ id = "$($object.id)"; name = "$($object.name)"; reason = "expireDate '$($object.expireDate)' is not $DateFormat" })
             continue
         }
 
@@ -302,7 +377,7 @@ try {
         $declared = @($rawTriggers | Where-Object { -not [string]::IsNullOrWhiteSpace($_) } | ForEach-Object { [int]$_ })
         if (-not $declared) {
             Write-Warning "$label has no valid date triggers - not monitored."
-            $invalid.Add([ordered]@{ id = "$($object.id)"; name = "$($object.name)"; owner = "$($object.owner)"; reason = 'no-triggers'; value = '' })
+            $invalid.Add([ordered]@{ id = "$($object.id)"; name = "$($object.name)"; reason = 'No date triggers' })
             continue
         }
         if (($declared -join ',') -ne (($declared | Sort-Object) -join ',')) { Write-Warning "$label declares triggers out of order ($($declared -join ', ')). Sorted automatically." }
@@ -327,27 +402,31 @@ try {
 
     $editExists = Test-Path ([System.IO.Path]::Combine((Split-Path $websitePath -Parent), 'edit.html'))
 
-    $data = [ordered]@{
-        meta = [ordered]@{
-            org               = $OrganizationName
-            logo              = $logo
-            lang              = $Language
-            version           = $version
-            generated         = (Get-Date).ToString('o')
-            staleHours        = $staleHours
-            timelineDays      = $timelineDays
-            expiredNotifyDays = $expiredNotifyDays
-            completeFile      = $completeDisplay
-            editLink          = [bool]$editExists
-            channel           = 'mail'
-        }
-        monitored = @($rows)
-        completed = @($completedRows)
-        noCreds   = @($noCreds)
-        invalid   = @($invalid)
+    $meta = [ordered]@{
+        organization      = $OrganizationName
+        logo              = $logo
+        version           = $version
+        generated         = (Get-Date).ToString('o')
+        staleAfterHours   = $staleHours
+        timelineDays      = $timelineDays
+        expiredNotifyDays = $expiredNotifyDays
+        completeSource    = $completeDisplay
+        editorUrl         = $(if ($editExists) { 'edit.html' } else { '' })
     }
-    $dataJson = ConvertTo-Json -InputObject $data -Depth 10 -Compress
-    $dataB64  = [Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes($dataJson))
+
+    function ConvertTo-EmbedJson {
+        param($Value, [switch] $List)
+        if ($List) { $json = if (@($Value).Count) { ConvertTo-Json -InputObject @($Value) -Depth 10 -Compress } else { '[]' } }
+        else       { $json = ConvertTo-Json -InputObject $Value -Depth 10 -Compress }
+        return $json.Replace('<', '<').Replace('>', '>').Replace('&', '&')
+    }
+    $embed = [ordered]@{
+        '__PSTODO_META__'      = ConvertTo-EmbedJson $meta
+        '__PSTODO_DATA__'      = ConvertTo-EmbedJson $rows -List
+        '__PSTODO_COMPLETED__' = ConvertTo-EmbedJson $completedRows -List
+        '__PSTODO_INVALID__'   = ConvertTo-EmbedJson $invalid -List
+        '__PSTODO_NONCRED__'   = ConvertTo-EmbedJson $noCreds -List
+    }
 
     Write-Host "Start $Section ... 100%" -ForegroundColor Green
     Write-Host ''
@@ -362,11 +441,11 @@ try {
 
     if (-not (Test-Path $TemplatePath)) { throw "Template not found: $TemplatePath" }
     $template = Get-Content -Raw -Encoding UTF8 $TemplatePath
-    foreach ($token in '__PSTODO_DATA_B64__', '__PSTODO_LANG__') {
-        if ($template.IndexOf($token) -lt 0) { throw "The template is missing the placeholder $token." }
+    $html = $template
+    foreach ($token in $embed.Keys) {
+        if ($html.IndexOf($token) -lt 0) { throw "The template is missing the placeholder $token." }
+        $html = $html.Replace($token, $embed[$token])
     }
-    $html = $template.Replace('__PSTODO_DATA_B64__', $dataB64)
-    $html = $html.Replace('__PSTODO_LANG__', $Language)
 
     Write-Host "Start $Section ... 100%" -ForegroundColor Green
     Write-Host ''

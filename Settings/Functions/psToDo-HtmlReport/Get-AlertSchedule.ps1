@@ -35,6 +35,7 @@
             kind    = 'window'
             trigger = $t
             date    = $open.ToString($fmt)
+            closes  = $close.ToString($fmt)
             state   = (& $stateOf $key $open $close)
             sentAt  = $(if ($State.ContainsKey($key)) { $State[$key] } else { $null })
         })

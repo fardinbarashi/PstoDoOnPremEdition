@@ -5,7 +5,8 @@ PSVersion : Windows PowerShell 5.1 or PowerShell 7.x, run as Administrator on th
 About Script :
 Author : Fardin Barashi
 Title : psToDo setup - saving from the editable dashboard
-Description : Members of one AD editors group can save in edit.html: ASP.NET, web.config and NTFS rights. Safe to run again.
+Description : Members of one AD editors group can save in edit.html and use Tools: ASP.NET, web.config and
+NTFS rights (data, backups, logs and the Tools queue). Safe to run again.
 For more information, please visit the GitHub repository: https://github.com/fardinbarashi/psToDo
 
 Examples
@@ -25,6 +26,7 @@ param(
     [string] $DbPath,
     [string] $BackupFolder,
     [string] $LogFolder,
+    [string] $QueueFolder,
     [switch] $SkipFeatureInstall,
     [switch] $SkipNtfs
 )
@@ -39,6 +41,7 @@ if ([string]::IsNullOrWhiteSpace($PhysicalPath)) { $PhysicalPath = Join-Path $re
 if ([string]::IsNullOrWhiteSpace($DbPath))       { $DbPath       = Join-Path $repoRoot 'Files\db\monitorobjects.json' }
 if ([string]::IsNullOrWhiteSpace($BackupFolder)) { $BackupFolder = Join-Path $repoRoot 'Files\backup\psToDo' }
 if ([string]::IsNullOrWhiteSpace($LogFolder))    { $LogFolder    = Join-Path $repoRoot 'Logs' }
+if ([string]::IsNullOrWhiteSpace($QueueFolder))  { $QueueFolder  = Join-Path $repoRoot 'Files\queue' }
 
 $principal = New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())
 if (-not $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
@@ -148,6 +151,7 @@ $settings = [ordered]@{
     'psToDo:DbPath'       = $DbPath
     'psToDo:BackupFolder' = $BackupFolder
     'psToDo:EditLog'      = [System.IO.Path]::Combine($LogFolder, 'psToDo-web-edits.log')
+    'psToDo:QueueFolder'  = $QueueFolder
 }
 foreach ($key in $settings.Keys) {
     $node = $appSettings.SelectSingleNode("add[@key='$key']")
@@ -180,6 +184,7 @@ else {
         @{ Path = $dbFolder;     Grant = "IIS AppPool\$($pool):(OI)(CI)M"; Why = 'app pool writes monitorobjects.json' }
         @{ Path = $BackupFolder; Grant = "IIS AppPool\$($pool):(OI)(CI)M"; Why = 'app pool writes backups' }
         @{ Path = $LogFolder;    Grant = "IIS AppPool\$($pool):(OI)(CI)M"; Why = 'app pool writes the edit log' }
+        @{ Path = $QueueFolder;  Grant = "IIS AppPool\$($pool):(OI)(CI)M"; Why = 'app pool writes the Tools orders and reads their results' }
         @{ Path = $PhysicalPath; Grant = "$($EditorsGroup):(OI)(CI)R";     Why = 'IIS reads the page as the signed-in editor' }
     )
     foreach ($g in $grants) {
@@ -213,3 +218,4 @@ Write-Host "  2. Open http(s)://<server>/edit.html as a member of $EditorsGroup 
 Write-Host '     Anyone else who can open the site sees the same page read-only.'
 Write-Host '  3. A user just added to the group must sign out and in again before saving works.'
 Write-Host '  4. Saves are logged in Logs\psToDo-web-edits.log; backups land in Files\backup\psToDo.'
+Write-Host '  5. For Tools in the dashboard: run .\Install-help\Setup-ToolsRunner.ps1 (creates the scheduled task).'

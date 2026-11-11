@@ -13,7 +13,7 @@ Based on psToDo 1.3. Runs on **Windows PowerShell 5.1** and **PowerShell 7.x**.
 ---
 
 ## Table of Contents
-- [Setup from start to finish](#setup-from-start-to-finish) (step 11: [edit in the browser](#11-optional-edit-the-data-in-the-browser))
+- [Setup from start to finish](#setup-from-start-to-finish) (step 11: [edit in the browser](#11-optional-edit-the-data-in-the-browser), step 12: [Tools](#12-optional-tools-for-editors))
 - [Maintenance](#maintenance)
 - [Troubleshooting](#troubleshooting)
 - [What is different from the cloud edition](#what-is-different-from-the-cloud-edition)
@@ -215,9 +215,7 @@ Set your organisation name, logo and language in `Settings\Config\report-setting
 
 `edit.html` shows the same objects as a table people can change directly: name, expire date, status, triggers, mail on/off, and in a details panel the server, description, sender, recipients, subject and body. Objects can be added, duplicated and deleted. Members of an **editors** group can save; everyone else who can open the site sees the same page read-only.
 
-The editor opens **inside the dashboard**: when `edit.html` exists next to `index.html`, the dashboard gets an **Edit data** menu item that shows the editor in the same window (menu, logo and theme stay the same, and unsaved changes are kept while you look at other views). `edit.html` still works on its own too. Changes appear on the dashboard pages after the next report run.
-
-Both pages have a light and a dark theme. They follow the Windows setting until someone clicks the moon/sun button; that choice is remembered in the browser.
+The editor opens **inside the dashboard**: members of the editors group get an **Edit** menu item that shows the editor in an "Edit objects" panel, with a link **Update dashboard now** (needs step 12). Unsaved changes are kept while you look at other views. Viewers do not see Edit. `edit.html` still works on its own too. Changes appear on the other dashboard views after the next report run.
 
 Saving goes through `psToDo-api.ashx`, a small ASP.NET handler in the same IIS folder. It writes `Files\db\monitorobjects.json` directly.
 
@@ -255,13 +253,48 @@ What protects the data:
 
 Alerts and `index.html` pick up a change on their next scheduled run.
 
-### 12. Final checklist
+### 12. Optional: Tools for editors
+
+**Tools** in the dashboard menu lets members of the editors group run the importers and a few maintenance jobs. It needs step 11.
+
+| Tool | What it does |
+|---|---|
+| Import Exchange certificates / AD account expiry / Entra app registrations / Microsoft 365 Message Center | Runs the importer, then rebuilds the dashboard. The two Delegated importers need a person to sign in and cannot be run here. |
+| Update dashboard now | Runs the report scripts, so saved changes show right away. Also a link in the Edit view. |
+| Preview today's alerts | Runs the alert script with `-WhatIf`. Nothing is sent. |
+| Send test message | Sends one object's alert mail marked `[TEST]`, to an address you type or to the object's recipients. Nothing is recorded in `sent-state.json`. |
+| Send alert again | Removes one object's entries from `sent-state.json` (a backup is taken first), so it alerts again on the next run of the alert script. |
+| Health check | Checks the SMTP settings and connection, the credential file, the data files, when the alert and report scripts last ran, and the scheduled tasks. |
+| Backups | Lists the backups of `monitorobjects.json` and restores one. The current file is saved first, and the restore is logged with the user name. |
+| Runs / Recent saves and orders | Every run with its output and who ordered it, and the last lines of the edit log. |
+
+How it runs: the web page never starts a script. It writes a small request file to `Files\queue\requests`. `psToDo-Tools-v1.0.ps1` runs every minute as the service account, picks up the request, runs the tool from the fixed list inside that script, and writes status and output to `Files\queue\runs` and `Files\queue\logs`. The web server gets no new rights, and the tools run as the same account, with the same credential file, as the scheduled alert task. A job starts within a minute.
+
+1. On the server, as Administrator:
+
+    ```powershell
+    .\Install-help\Setup-ToolsRunner.ps1 -Credential (Get-Credential CONTOSO\svc-pstodo) -WhatIf
+    .\Install-help\Setup-ToolsRunner.ps1 -Credential (Get-Credential CONTOSO\svc-pstodo)
+    ```
+
+    It creates `Files\queue`, gives the account **Modify** on it and creates the scheduled task **psToDo Tools** (every minute, one instance at a time). Use `-GmsaAccount` for a group managed service account.
+
+2. Run `Setup-IisReportEditor.ps1` again with the same parameters as in step 11. It writes `psToDo:QueueFolder` to `web.config` and gives the app pool **Modify** on `Files\queue`.
+
+3. Run `.\psToDo-HTML-Report-Editable-Onprem-v1.0.ps1` once. It copies the current handler to the site.
+
+4. Open the dashboard through IIS as an editor. The menu has **Edit** and **Tools**. Run **Health check**; the page shows when the tools task was last seen and warns if it has stopped.
+
+What protects it: only editors can see Tools or call the handler; requests need the same header check as saving; the handler only accepts tools that the runner has published, and the runner checks every value (object id, e-mail address) before it runs anything; every order and restore is written to `Logs\psToDo-web-edits.log` with the user name.
+
+### 13. Final checklist
 
 - [ ] Test mail from step 5 arrived.
 - [ ] `-WhatIf` run lists the expected objects.
 - [ ] The alert task ran on schedule and the log says `auth: Credential` and `Mail: n of n sent`.
 - [ ] The dashboard opens for a group member and returns 401 for others.
 - [ ] If you use the editor: an editor can save in `edit.html`, a viewer sees it read-only.
+- [ ] If you use Tools: Health check runs from the Tools page and the runner was seen within the last minute.
 - [ ] `monitorobjects.json` and `*-credential.xml` are not under any web root and not in git.
 
 ---
@@ -299,6 +332,10 @@ Start with the newest transcript in `Logs\`.
 | `edit.html`: "Read-only: ... is not a member of ..." | The user is not in the editors group, or has not signed in again since being added | Add to the group; sign out and in |
 | `edit.html`: "changed by someone else" | Another editor or a plugin wrote the file after the page loaded it | Download your version if needed, then Reload and redo the change |
 | `edit.html`: "Not saved: UnauthorizedAccessException ..." | The app pool cannot write `Files\db`, the backup folder or `Logs` | Run `Setup-IisReportEditor.ps1` again (NTFS step) |
+| No **Edit** or **Tools** in the menu | You are not in the editors group, `edit.html` is not in the site folder, or the dashboard is opened as a file | Run the editable report script; open the dashboard through IIS |
+| Tools: "The tools task has not run yet" or "was last seen ...", runs stay *Queued* | The scheduled task **psToDo Tools** is missing, disabled or failing | Run `Setup-ToolsRunner.ps1`; check the task's last result and that the account may log on as a batch job |
+| Tools: "Tools could not be loaded" | The handler is an old copy, or the app pool cannot read `Files\queue` | Run `Setup-IisReportEditor.ps1` again, then the editable report script |
+| Tools: a run is *Failed* | The script ended with an error | Click **Output** on the run; it shows what the script wrote |
 
 ---
 
@@ -325,6 +362,8 @@ Everything else — trigger windows, state file, backups, Kanban status, complet
 | `psToDo-Onprem-v1.0.ps1` | Reads `Files\db\monitorobjects.json`, decides what is due, and sends the alerts **through your Exchange server**. |
 | `psToDo-HTML-Report-Onprem-v1.0.ps1` | Reads `Files\db\monitorobjects.json` and `Files\state\sent-state.json` and writes the status dashboard `index.html` (built from `Settings\Web\report-template.html`, configured in `Settings\Config\report-settings.json`). |
 | `psToDo-HTML-Report-Editable-Onprem-v1.0.ps1` | Writes `edit.html`, the page where editors change the data in the browser (built from `Settings\Web\edit-template.html`), and keeps `psToDo-api.ashx` next to it up to date. |
+| `psToDo-Tools-v1.0.ps1` | The tools runner: runs the jobs editors order on the Tools page (step 12). Scheduled every minute. |
+| `Settings\Tools\*.ps1` | The tools that are not existing scripts: test message, send alert again, health check. |
 | `Settings\plugin\Import-ExchangeCertificates-Onprem-v1.0.ps1` | Imports every certificate on every Exchange server. |
 | `Settings\plugin\Import-ADAccountExpiry-Onprem-v1.0.ps1` | Imports AD account expiry and service-account password expiry. |
 | `Settings\plugin\Import-EntraAppRegistrations-v1.3.ps1` (+ `-Delegated`) | Cloud importer: Entra app registration secrets and certificates. Needs Graph. |
@@ -496,15 +535,18 @@ Writes `Files\report\index.html` and a timestamped copy in `Files\backup\psToDo-
 
 What it shows:
 
-- **Header** with your organisation name and logo, and key figures: objects, next alert, last alert sent, and when the report was generated.
+- **Menu**: Overview, Objects (with a red count of expired and critical objects), Completed, and **Other** (Export CSV, Print, Dark/Light theme). Editors also get **Edit** and **Tools**.
+- **Header** with your organisation name and logo, and key figures: objects, next alert, last alerted, and when the report was updated.
 - A **warning when the report is older than 24 hours**, which means the scheduled report run has stopped.
-- **Urgency cards** (expired, critical, warning, OK). The text under each card is worked out from your own triggers, for example "Within 7 days", or "Last alert window (7-30 days)" when objects use different triggers. Click a card to filter the table.
-- A **timeline** of everything that expires in the next 90 days. Click a dot to open the object.
+- **Urgency cards** (expired, critical, warning, OK). The text under each card is worked out from your own triggers, for example "Within 7 days", or "Last alert window (7–30 days)" when objects use different triggers. Click a card to filter the table.
+- A **timeline** of what expires in the coming days: pick 30–365 days or type your own (1–3650), switch each status on or off, and collapse it. Expired objects sit to the left of Today. Click a dot to open the object.
 - **Upcoming alerts** and **recent alerts**.
-- **Tables** for Monitored, Completed, No channel (mail disabled), No credentials (Entra apps without secrets or certificates) and Not monitored (bad date). Columns include **Owner**, **Next alert** (date + channel) and **Last alert**, read from `Files\state\sent-state.json`. Filter by text, urgency, status and owner. Click a header to sort.
-- A **detail view** per object: an "About this object" card, the action text and mail settings, and its **alert history**. Each alert window shows whether it was sent (with the time), is due at the next run, is still waiting, or was skipped because it closed without being sent.
-- **Export CSV** of the current table (`;` as separator in Swedish, so Excel opens it directly), and a **print** layout.
-- **Light and dark theme** following the Windows setting, and **English or Swedish**.
+- **Tabs** for Monitored, Completed, No channel (mail turned off), No credentials (Entra apps without secrets or certificates) and Not monitored (bad date or no triggers). Columns include **Owner**, **Next alert** and **Last alerted**, read from `Files\state\sent-state.json`.
+- **Click a row** for its details: an "About this object" box, the **alert schedule** (each window: sent with the time, due on the next run, pending, or not sent) and the mail settings.
+- **Export CSV** of the current table and a **print** layout, both in the **Other** menu.
+- **Light and dark theme**. It follows Windows until someone picks one in the Other menu; the choice is remembered in the browser and shared with the editor.
+
+The page is in English and looks the same as the cloud edition's dashboard.
 
 The page reads `sent-state.json` but never changes it. "Next alert" uses the same rules as the alert script, including reminders every 7 days after expiry.
 
@@ -516,7 +558,6 @@ The page reads `sent-state.json` but never changes it. "Next alert" uses the sam
 |---------|---------|---------|
 | `OrganizationName` | empty | Shown in the header and breadcrumb |
 | `LogoPath` | empty | PNG, JPG, GIF or SVG under 512 KB, relative to the psToDo folder or absolute. Embedded in the page |
-| `Language` | `en` | `en` or `sv` |
 | `StaleAfterHours` | `24` | Show the "report is old" warning after this many hours |
 | `TimelineDays` | `90` | How far ahead the timeline reaches |
 | `ExpiredNotifyDays` | `7` | Must match `$expiredNotifyDays` in the alert script |
@@ -532,6 +573,7 @@ PsToDoOnprem\
 ├── psToDo-Onprem-v1.0.ps1
 ├── psToDo-HTML-Report-Onprem-v1.0.ps1
 ├── psToDo-HTML-Report-Editable-Onprem-v1.0.ps1
+├── psToDo-Tools-v1.0.ps1                 (tools runner, scheduled every minute)
 ├── Files\
 │   ├── db\monitorobjects.json            (sample on-prem data)
 │   └── report\web.config                 (IIS: one AD group only)
@@ -541,6 +583,7 @@ PsToDoOnprem\
 │   ├── Test-OnpremSmtp.ps1
 │   ├── Setup-IisReportSecurity.ps1        (IIS access for one AD group)
 │   ├── Setup-IisReportEditor.ps1          (saving from edit.html for an editors group)
+│   ├── Setup-ToolsRunner.ps1              (queue folder and the scheduled task for Tools)
 │   └── Create a self-signed cert to app-reg.ps1   (cloud importers only)
 └── Settings\
     ├── Config\
@@ -551,7 +594,8 @@ PsToDoOnprem\
     ├── Web\
     │   ├── report-template.html           (the status dashboard)
     │   ├── edit-template.html             (the editable page)
-    │   └── psToDo-api.ashx                (save handler, copied next to edit.html)
+    │   └── psToDo-api.ashx                (handler for saving and for Tools, copied to the site)
+    ├── Tools\                            (Send-TestMessage, Reset-AlertState, Test-Health)
     ├── Functions\
     │   ├── psToDo\                       (main-script functions, no Graph)
     │   ├── psToDo-HtmlReport\
@@ -567,7 +611,7 @@ PsToDoOnprem\
         └── messagecenter\config\{messagecenter-defaults.json, version.json}
 ```
 
-Runtime folders (`Logs\`, `Files\state\`, `Files\report\`, `Files\backup\`, `Files\config\`) are created on first run. Keep `monitorobjects.json` and any `*-credential.xml` out of git and out of any web root.
+Runtime folders (`Logs\`, `Files\state\`, `Files\report\`, `Files\backup\`, `Files\config\`, `Files\queue\`) are created on first run. Keep `monitorobjects.json` and any `*-credential.xml` out of git and out of any web root.
 
 ---
 
