@@ -3,7 +3,10 @@
 ![logo](img/pstodologo.png)
 
 The **on-prem edition** of [psToDo](https://github.com/fardinbarashi/psToDo). Same job — watch expiry dates in a JSON file and alert a team by mail before things lapse, plus a self-contained HTML dashboard — but built for environments that run **their own Exchange server** instead of Microsoft 365.
-
+![logo](https://raw.githubusercontent.com/fardinbarashi/psToDo/refs/heads/main/githubRepoContentDeleteIfYouWant/IMG/1.jpg)
+![logo](https://raw.githubusercontent.com/fardinbarashi/psToDo/refs/heads/main/githubRepoContentDeleteIfYouWant/IMG/2.jpg)
+![logo](https://raw.githubusercontent.com/fardinbarashi/psToDo/refs/heads/main/githubRepoContentDeleteIfYouWant/IMG/3.jpg)
+![logo](https://raw.githubusercontent.com/fardinbarashi/psToDo/refs/heads/main/githubRepoContentDeleteIfYouWant/IMG/4.jpg)
 The **main script and the HTML report** only talk to **your on-prem Exchange server**, over SMTP. No Microsoft Graph, no app registration, no Teams webhook, no PowerShell Gallery downloads.
 
 The **optional cloud importers** (Entra app registrations and M365 Message Center) are included from the cloud edition for hybrid organisations. They are the only parts that contact Microsoft Graph, the main script never calls them, and they can be left unused on an isolated network.
