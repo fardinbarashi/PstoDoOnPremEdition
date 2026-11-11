@@ -1607,14 +1607,14 @@ function renderTools() {
   $('runnerInfo').textContent = runner && s.runnerAgeSeconds >= 0 ? 'Tools task seen ' + ago(s.runnerAgeSeconds) + (runner.host ? ' on ' + runner.host : '') : '';
 
   // Cards: only rebuilt when the tool list changes, so what you typed stays
-  const sig = JSON.stringify(tools.map(t => [t.id, t.group, t.label, t.description, t.confirm, (t.args || []).map(a => [a.name, a.type, a.label, a.optional, (a.options || []).join()])])) + '|' + monitored().length;
+  const sig = (s ? '1' : '0') + JSON.stringify(tools.map(t => [t.id, t.group, t.label, t.description, t.confirm, (t.args || []).map(a => [a.name, a.type, a.label, a.optional, (a.options || []).join()])])) + '|' + monitored().length;
   if (sig !== cardsSig) {
     cardsSig = sig;
     const groups = [];
     tools.forEach(t => { if (groups.indexOf(t.group || '') < 0) groups.push(t.group || ''); });
     $('toolCards').innerHTML = tools.length
       ? groups.map(g => '<div class="tool-group">' + esc(g) + '</div><div class="tool-grid">' + tools.filter(t => (t.group || '') === g).map(toolCardHtml).join('') + '</div>').join('')
-      : '<div class="empty">' + (s ? 'No tools yet.' : 'Loading…') + '</div>';
+      : '<div class="empty">' + (s ? 'The tools show here when the tools task has run.' : 'Loading…') + '</div>';
     tools.forEach(t => setFoot(t.id));
   }
   tools.forEach(t => {

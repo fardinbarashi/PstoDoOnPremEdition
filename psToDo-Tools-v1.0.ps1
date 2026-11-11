@@ -172,6 +172,9 @@ function Invoke-Step {
     $quoted = foreach ($a in @($File) + @($Arguments)) { if ($a -match '[\s]' -or $a -eq '') { '"' + $a + '"' } else { $a } }
     $argLine = '-NoProfile -NonInteractive -ExecutionPolicy Bypass -File ' + ($quoted -join ' ')
     $exe = (Get-Process -Id $PID).Path
+    if ([IO.Path]::GetFileNameWithoutExtension($exe) -notin 'powershell', 'pwsh') {
+        $exe = Join-Path $PSHOME $(if ($PSVersionTable.PSVersion.Major -ge 6) { 'pwsh.exe' } else { 'powershell.exe' })
+    }
 
     $p = Start-Process -FilePath $exe -ArgumentList $argLine -WorkingDirectory $scriptRoot -NoNewWindow -PassThru `
              -RedirectStandardOutput $out -RedirectStandardError $err

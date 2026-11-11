@@ -36,7 +36,13 @@ $scriptRoot = if ($PSScriptRoot) { $PSScriptRoot }
 $repoRoot = (Resolve-Path (Join-Path $scriptRoot '..')).Path
 $runner   = Join-Path $repoRoot 'psToDo-Tools-v1.0.ps1'
 if ([string]::IsNullOrWhiteSpace($QueueFolder))    { $QueueFolder    = Join-Path $repoRoot 'Files\queue' }
-if ([string]::IsNullOrWhiteSpace($PowerShellPath)) { $PowerShellPath = (Get-Process -Id $PID).Path }
+if ([string]::IsNullOrWhiteSpace($PowerShellPath)) {
+    $hostExe = (Get-Process -Id $PID).Path
+    if ([IO.Path]::GetFileNameWithoutExtension($hostExe) -notin 'powershell', 'pwsh') {
+        $hostExe = Join-Path $PSHOME $(if ($PSVersionTable.PSVersion.Major -ge 6) { 'pwsh.exe' } else { 'powershell.exe' })
+    }
+    $PowerShellPath = $hostExe
+}
 
 $principal = New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())
 if (-not $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) { throw 'Run this script as Administrator.' }
